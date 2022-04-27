@@ -4,6 +4,9 @@
 #include <io.h>
 #include <stdio.h>
 
+#include "..\Global Data Structures\GameBoard.h"
+#include "Functions.h"
+
 //SERVER
 int _tmain(int argc, TCHAR** argv)
 {
@@ -15,6 +18,10 @@ int _tmain(int argc, TCHAR** argv)
 #endif
 
 	_tprintf(L"Teste unicode no servidor: á à\n");
+
+	GameBoard gb;
+
+	gb.x = 5;
 
 	return 0;
 }
