@@ -2,10 +2,15 @@
 
 void initGameboard()
 {
-	//fecth registry values here
+	///////////////////////////
+	///Fecth Registry Values///
+	///////////////////////////
 
 
-	//Allocate the board
+
+	////////////////////////
+	///Allocate the board///
+	////////////////////////
 
 	GameBoard gb;
 
@@ -19,5 +24,29 @@ void initGameboard()
 		gb.board[i] = (GameCell*) malloc(gb.y * sizeof(GameCell));
 	}
 
+	///////////////
+	///Set cells///
+	///////////////
 
+	for (int y = 0; y < gb.y; y++)
+	{
+		for (int x = 0; x < gb.x; x++)
+		{
+			gb.board[y][x].current.piece = E;	//All cells to empty
+			gb.board[y][x].end_side = NO;		//No cell is the end yet
+			gb.board[y][x].isStart = 0;			//No cell is the start yet
+		}
+	}
+
+	///////////////////////
+	///Choose start cell///
+	///////////////////////
+
+
+
+	//////////////////////////////////
+	///Choose end cell and the side///
+	//////////////////////////////////
+
+	gb.board[0][0].end_side = R;
 }

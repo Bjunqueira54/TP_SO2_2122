@@ -4,6 +4,8 @@
 #include <io.h>
 #include <stdio.h>
 
+#include "..\Global Data Structures\GameBoard.h"
+
 //MONITOR
 int _tmain(int argc, TCHAR** argv)
 {

@@ -13,6 +13,15 @@ typedef enum _piecetype
 	E	//Empty
 } PieceType;
 
+typedef enum _endside
+{
+	N,	//North
+	S,	//South
+	R,	//East
+	L,	//West
+	NO	//None
+};
+
 typedef struct _gamepiece
 {
 	PieceType piece;
