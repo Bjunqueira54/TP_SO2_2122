@@ -6,6 +6,7 @@
 
 #include "..\Global Data Structures\GameBoard.h"
 #include "Functions.h"
+#include "SharedMemoryFunctions.h"
 
 //SERVER
 int _tmain(int argc, TCHAR** argv)
@@ -19,9 +20,11 @@ int _tmain(int argc, TCHAR** argv)
 
 	_tprintf(L"Teste unicode no servidor: á à\n");
 
-	GameBoard gb;
+	initSharedMemory();
 
-	gb.x = 5;
+	_getch();
+
+	UnmapSharedMemory();
 
 	return 0;
 }

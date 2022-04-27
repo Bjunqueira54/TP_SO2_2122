@@ -13,27 +13,22 @@ typedef enum _piecetype
 	E	//Empty
 } PieceType;
 
-typedef enum _endside
+typedef enum _side
 {
 	N,	//North
 	S,	//South
 	R,	//East
 	L,	//West
 	NO	//None
-};
-
-typedef struct _gamepiece
-{
-	PieceType piece;
-
-} GamePiece;
+} Side;
 
 typedef struct _gamecell
 {
-	GamePiece current;
+	BOOL isStart;	//Make sure that: 1. Both are FALSE
+	BOOL isEnd;		//2. Only one is TRUE
 
-	int isStart;
-	int end_side;
+	PieceType piece;
+	Side side;	//Works for both start and end.
 } GameCell;
 
 typedef struct _gameboard

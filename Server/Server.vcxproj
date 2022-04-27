@@ -141,10 +141,12 @@
   <ItemGroup>
     <ClCompile Include="Functions.cpp" />
     <ClCompile Include="Main.c" />
+    <ClCompile Include="SharedMemoryFunctions.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Global Data Structures\GameBoard.h" />
     <ClInclude Include="Functions.h" />
+    <ClInclude Include="SharedMemoryFunctions.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
