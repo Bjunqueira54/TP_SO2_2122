@@ -2,4 +2,5 @@
 
 #include "..\Global Data Structures\GameBoard.h"
 
-void initGameboard();
+GameBoard* initGameboard();
+void drawBoardToConsole(GameBoard*);

@@ -1,6 +1,5 @@
 #pragma once
 #include <Windows.h>
-#include <tchar.h>
 
 typedef enum _piecetype
 {
@@ -26,6 +25,8 @@ typedef struct _gamecell
 {
 	BOOL isStart;	//Make sure that: 1. Both are FALSE
 	BOOL isEnd;		//2. Only one is TRUE
+
+	BOOL isFlooded;	//Has water reached this pos?
 
 	PieceType piece;
 	Side side;	//Works for both start and end.

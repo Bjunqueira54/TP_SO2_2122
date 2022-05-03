@@ -18,13 +18,33 @@ int _tmain(int argc, TCHAR** argv)
 
 #endif
 
-	_tprintf(L"Teste unicode no servidor: á à\n");
+	//_tprintf(L"Teste unicode no servidor:\n");
+	//https://en.wikipedia.org/wiki/Box_Drawing
+	//https://en.wikipedia.org/wiki/Block_Elements
+	//https://en.wikipedia.org/wiki/Arrows_(Unicode_block)
+	//_tprintf(L"\u2554 \u2557 \u255a \u255d \u2550 \u2551 \n");
+	//_tprintf(L"\u259b \u259c \u2599 \u259f \u2583 \u2590 \n");
+	//_tprintf(L"\u2190 \u2191 \u2192 \u2193 \n");
 
-	initSharedMemory();
+	//start game
+
+	GameBoard* gb = initGameboard();
 
 	_getch();
 
-	UnmapSharedMemory();
+	BOOL isGameRunning = TRUE;
+
+	while (isGameRunning)
+	{
+		drawBoardToConsole(gb);
+		isGameRunning = FALSE;
+	}
+
+	_tprintf(L"Game ended.\n");
+
+	//initSharedMemory();
+	//UnmapSharedMemory();
+	free(gb);
 
 	return 0;
 }
