@@ -3,7 +3,10 @@
 #include <Windows.h>
 #include <tchar.h>
 
-void initSharedMemory();
-void UnmapSharedMemory();
+#include "..\Global Data Structures\GameBoard.h"
+
+HANDLE initSharedMemory(HANDLE, HANDLE);
+void copyBoardtoMemory(GameBoard*, HANDLE);
+void UnmapSharedMemory(HANDLE);
 //DWORD WINAPI readPagedMemory();
-void triggerEvent();
+void triggerEvent(HANDLE);

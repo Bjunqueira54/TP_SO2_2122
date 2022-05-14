@@ -4,3 +4,4 @@
 
 GameBoard* initGameboard();
 void drawBoardToConsole(GameBoard*);
+DWORD WINAPI waterControlThread(LPVOID);

@@ -7,15 +7,11 @@ TCHAR mapSharedMemoryBlockName[] = TEXT("MapMemory");
 TCHAR mutexName[] = TEXT("MutexMemory");
 TCHAR mainEventName[] = TEXT("EventMemory");
 
-HANDLE mapMemoryHandle;
-HANDLE hMutex;
-HANDLE hEvent;
-
 BOOL running = TRUE;
 
-void initSharedMemory()
+HANDLE initSharedMemory(HANDLE hMutex, HANDLE hEvent)
 {
-	mapMemoryHandle = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(GameBoard), mapSharedMemoryBlockName);
+	HANDLE mapMemoryHandle = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(GameBoard), mapSharedMemoryBlockName);
 
 	if (mapMemoryHandle == NULL)
 	{
@@ -31,29 +27,34 @@ void initSharedMemory()
 		_tprintf(TEXT("Mutex already exists\n"));
 
 	hEvent = CreateEvent(NULL, TRUE, FALSE, mainEventName);
+
+	return mapMemoryHandle;
 }
 
-void UnmapSharedMemory()
+void UnmapSharedMemory(HANDLE mapMemoryHandle)
 {
 	CloseHandle(mapMemoryHandle);
 }
 
 //Code from last year's project. Adapt as necessary
-/*
-DWORD WINAPI readPagedMemory()
-{
-	MyData* data = (MyData*) MapViewOfFile(	mainMemoryHandle,		// handle to map object
-											FILE_MAP_ALL_ACCESS,	// read/write permission
-											0,
-											0,
-											sizeof(MyData));
 
-	if (data == NULL)
+void copyBoardtoMemory(GameBoard* gb, HANDLE mapMemoryHandle)
+{
+	GameBoard* mem_gb = (GameBoard*) MapViewOfFile(mapMemoryHandle, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(GameBoard));
+
+	if (mem_gb == NULL)
 	{
-		_tprintf(TEXT("Error mapping memory"));
-		return 0;
+		_tprintf(L"Error mapping memory!\n");
+		return -1;
 	}
 
+	memcpy((void*)mem_gb, (void*)gb, sizeof(GameBoard));
+	memcpy((void*)mem_gb->board, (void*)gb->board, sizeof(GameCell) * gb->y * gb->x);
+}
+
+/*
+DWORD WINAPI readPagedMemory(GameBoard* gb, HANDLE hEvent)
+{
 	while (running)
 	{
 		DWORD eventResult = WaitForSingleObject(hEvent, INFINITE);
@@ -82,7 +83,7 @@ DWORD WINAPI readPagedMemory()
 }
 */
 
-void triggerEvent()
+void triggerEvent(HANDLE hEvent)
 {
 	SetEvent(hEvent);
 }

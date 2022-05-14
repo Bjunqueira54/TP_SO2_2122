@@ -18,7 +18,6 @@ int _tmain(int argc, TCHAR** argv)
 
 #endif
 
-	//_tprintf(L"Teste unicode no servidor:\n");
 	//https://en.wikipedia.org/wiki/Box_Drawing
 	//https://en.wikipedia.org/wiki/Block_Elements
 	//https://en.wikipedia.org/wiki/Arrows_(Unicode_block)
@@ -30,19 +29,38 @@ int _tmain(int argc, TCHAR** argv)
 
 	GameBoard* gb = initGameboard();
 
+	HANDLE hEvent = NULL;
+	HANDLE hMutex = NULL;
+	HANDLE mapMemoryHandle;
+
+	mapMemoryHandle = initSharedMemory(&hMutex, &hEvent);
+
+	WaitForSingleObject(hMutex, INFINITE);
+
+	copyBoardtoMemory(gb, mapMemoryHandle);
+
+	ReleaseMutex(hMutex);
+
 	_getch();
 
-	BOOL isGameRunning = TRUE;
+	gb->isGameRunning = TRUE;
 
-	while (isGameRunning)
+	HANDLE waterThreadHandle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) waterControlThread, (LPVOID) gb, NULL, NULL);
+	if (!waterThreadHandle)
 	{
-		drawBoardToConsole(gb);
-		isGameRunning = FALSE;
+		_tprintf(L"Cannot create waterThreadControl!\n");
+		return -1;
 	}
+
+	while (gb->isGameRunning)
+	{
+		//we take commands here?
+	}
+
+	WaitForSingleObject(waterThreadHandle, INFINITE);
 
 	_tprintf(L"Game ended.\n");
 
-	//initSharedMemory();
 	//UnmapSharedMemory();
 	free(gb);
 

@@ -70,6 +70,53 @@ GameBoard* initGameboard()
 	return gb;
 }
 
+//Got this from:
+//https://docs.microsoft.com/en-us/windows/console/clearing-the-screen
+void cls(HANDLE hConsole)
+{
+	COORD coordScreen = { 0, 0 };    // home for the cursor
+	DWORD cCharsWritten;
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	DWORD dwConSize;
+
+	// Get the number of character cells in the current buffer.
+	if (!GetConsoleScreenBufferInfo(hConsole, &csbi))
+	{
+		return;
+	}
+
+	dwConSize = csbi.dwSize.X * csbi.dwSize.Y;
+
+	// Fill the entire screen with blanks.
+	if (!FillConsoleOutputCharacter(hConsole,        // Handle to console screen buffer
+		(TCHAR)' ',      // Character to write to the buffer
+		dwConSize,       // Number of cells to write
+		coordScreen,     // Coordinates of first cell
+		&cCharsWritten)) // Receive number of characters written
+	{
+		return;
+	}
+
+	// Get the current text attribute.
+	if (!GetConsoleScreenBufferInfo(hConsole, &csbi))
+	{
+		return;
+	}
+
+	// Set the buffer's attributes accordingly.
+	if (!FillConsoleOutputAttribute(hConsole,         // Handle to console screen buffer
+		csbi.wAttributes, // Character attributes to use
+		dwConSize,        // Number of cells to set attribute
+		coordScreen,      // Coordinates of first cell
+		&cCharsWritten))  // Receive number of characters written
+	{
+		return;
+	}
+
+	// Put the cursor at its home coordinates.
+	SetConsoleCursorPosition(hConsole, coordScreen);
+}
+
 void drawBoardToConsole(GameBoard* gb)
 {
 	_tprintf(L" ");
@@ -217,4 +264,99 @@ void drawBoardToConsole(GameBoard* gb)
 		_tprintf(L" ");
 	}
 	_tprintf(L"\n");
+}
+
+DWORD WINAPI waterControlThread(LPVOID param)
+{
+	GameBoard* gb = (GameBoard*) param;
+
+	int v_current_water_posx = -1;
+	int v_current_water_posy = -1;
+	Side v_water_dir;
+
+	_tprintf(L"10 Seconds until water flows...\n");
+	drawBoardToConsole(gb);
+	Sleep(10000);
+
+	//Get the console handle and clear the screen
+	HANDLE hStdout;
+	hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+	cls(hStdout);
+
+	//Find water start location
+	for (int y = 0; y < gb->y; y++)
+	{
+		for (int x = 0; x < gb->x; x++)
+		{
+			if (gb->board[y][x].isStart)
+			{
+				v_current_water_posx = x;
+				v_current_water_posy = y;
+				v_water_dir = gb->board[y][x].side;
+			}
+		}
+	}
+
+	if (v_current_water_posx == -1 || v_current_water_posy == -1)
+	{
+		_tprintf(L"Uninitialized water start position!\n");
+		return -1;
+	}
+
+	while (gb->isGameRunning)
+	{
+		gb->board[v_current_water_posx][v_current_water_posy].isFlooded = TRUE;
+
+		PieceType v_current_cell_piece = gb->board[v_current_water_posx][v_current_water_posy].piece;
+
+		if(v_current_cell_piece == E)
+		{
+			gb->isGameRunning = FALSE;
+			_tprintf(L"You Lost!\n");
+		}
+		//Yes, I'm nuts. How could you tell?
+		else if ((v_water_dir == L &&	(v_current_cell_piece == V		||
+										v_current_cell_piece == UR		||
+										v_current_cell_piece == DR))	||
+				(v_water_dir == R &&	(v_current_cell_piece == V		||
+										v_current_cell_piece == UL		||
+										v_current_cell_piece == DL))	||
+				(v_water_dir == S &&	(v_current_cell_piece == H		||
+										v_current_cell_piece == DL		||
+										v_current_cell_piece == DR))	||
+				(v_water_dir == N &&	(v_current_cell_piece == H		||
+										v_current_cell_piece == UL		||
+										v_current_cell_piece == UR)))
+		{
+			gb->isGameRunning = FALSE;
+			_tprintf(L"You Lost!\n");
+		}
+		else if (	(v_water_dir == L && v_current_cell_piece == DL) ||
+					(v_water_dir == R && v_current_cell_piece == DR))
+		{
+			v_water_dir = S;
+		}
+		else if (	(v_water_dir == L && v_current_cell_piece == UL) ||
+					(v_water_dir == R && v_current_cell_piece == UR))
+		{
+			v_water_dir = N;
+		}
+		else if (	(v_water_dir == N && v_current_cell_piece == UL) ||
+					(v_water_dir == S && v_current_cell_piece == DL))
+		{
+			v_water_dir = L;
+		}
+		else if (	(v_water_dir == N && v_current_cell_piece == UR) ||
+					(v_water_dir == S && v_current_cell_piece == DR))
+		{
+			v_water_dir = R;
+		}
+
+		cls(hStdout);
+		drawBoardToConsole(gb);
+
+		Sleep(1000);
+	}
+
+	return 0;
 }
