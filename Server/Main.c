@@ -27,43 +27,68 @@ int _tmain(int argc, TCHAR** argv)
 
 	//start game
 
-	GameBoard* gb = initGameboard();
-
-	HANDLE hEvent = NULL;
-	HANDLE hMutex = NULL;
-	HANDLE gameMemoryHandle = NULL;
-	HANDLE boardMemoryHandle = NULL;
-
-	initSharedMemory(gb, &gameMemoryHandle, &boardMemoryHandle, &hMutex, &hEvent);
-
-	WaitForSingleObject(hMutex, INFINITE);
-
-	copyBoardtoMemory(gb, gameMemoryHandle, boardMemoryHandle);
-
-	ReleaseMutex(hMutex);
-
-	_getch();
-
-	gb->isGameRunning = TRUE;
-
-	HANDLE waterThreadHandle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) waterControlThread, (LPVOID) gb, NULL, NULL);
-	if (!waterThreadHandle)
+	FlowControl* fc = malloc(sizeof(FlowControl));
+	if (fc == NULL)
 	{
-		_tprintf(L"Cannot create waterThreadControl!\n");
+		_tprintf(L"Error allocating memory for Flow Control structure: (%d)!\n", GetLastError());
 		return -1;
 	}
 
-	while (gb->isGameRunning)
+	//init all flow control fields
+	CopyMemory(&fc->gb, initGameboard(), sizeof(GameBoard));
+	fc->hEvent = NULL;
+	fc->hMutex = NULL;
+	fc->buffer.in = 0;
+	fc->buffer.out = 0;
+	for (int i = 0; i < DIM; i++)
+		*fc->buffer.cmdBuffer[i] = NULL;
+
+	HANDLE gameMemoryHandle = NULL;
+
+	initSharedMemory(fc, &gameMemoryHandle);
+
+	//isto é só para fazer com que o InteliSense pare de
+	//moer o meu juizo á custa dos handles talvez serem 0.
+	if (fc->hEvent == NULL || fc->hMutex == NULL)
+	{
+		_tprintf(L"What happened inside initSharedMemory? Handles are not innitialized: (%d)!\n", GetLastError());
+		return -1;
+	}
+
+	WaitForSingleObject(fc->hMutex, INFINITE);
+
+	fc->gb.isGameRunning = TRUE;
+
+	copyFlowControltoMemory(fc, gameMemoryHandle);
+
+	ReleaseMutex(fc->hMutex);
+
+	HANDLE waterThreadHandle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) waterControlThread, (LPVOID) fc, NULL, NULL);
+	if (waterThreadHandle == NULL)
+	{
+		_tprintf(L"Cannot create waterThreadControl: (%d)!\n", GetLastError());
+		return -1;
+	}
+
+	HANDLE cmdThreadHandle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)cmdControlThread, (LPVOID) fc, NULL, NULL);
+	if (cmdThreadHandle == NULL)
+	{
+		_tprintf(L"Cannot create cmdThreadControl: (%d)!\n", GetLastError());
+		return -1;
+	}
+
+	while (fc->gb.isGameRunning)
 	{
 		//we take commands here?
 	}
 
 	WaitForSingleObject(waterThreadHandle, INFINITE);
+	WaitForSingleObject(cmdThreadHandle, INFINITE);
 
 	_tprintf(L"Game ended.\n");
 
-	//UnmapSharedMemory();
-	free(gb);
+	UnmapSharedMemory(gameMemoryHandle);
+	free(fc);
 
 	return 0;
 }

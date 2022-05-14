@@ -4,6 +4,7 @@
 #include <tchar.h>
 
 #include "Functions.h"
+#include "..\Global Data Structures\DrawingFunctions.h"
 
 GameBoard* initGameboard()
 {
@@ -24,18 +25,8 @@ GameBoard* initGameboard()
 	gb->y = 20;	//Registry Values
 	gb->x = 20;	//Replace later with correct values
 
-	//GameCell** board = createBoard(gb->y, gb->x);
-
-	/*gb->board = (GameCell**)malloc(gb->x * sizeof(GameCell*));
-
-	if (gb->board == NULL) return NULL;
-
-	for (int i = 0; i < gb->x; i++)
-	{
-		gb->board[i] = (GameCell*) malloc(gb->y * sizeof(GameCell));
-
-		if (gb->board[i] == NULL) return NULL;
-	}*/
+	gb->isWaterRunning = FALSE;
+	gb->isGameRunning = FALSE;
 
 	///////////////
 	///Set cells///
@@ -50,6 +41,7 @@ GameBoard* initGameboard()
 			gb->board[y][x].isEnd = FALSE;		//No cell is the end yet
 			gb->board[y][x].isFlooded = FALSE;	//No water at the start of the game
 			gb->board[y][x].side = NO;			//Since no start or end, set to NO
+			gb->board[y][x].isEnabled = TRUE;
 		}
 	}
 
@@ -59,7 +51,7 @@ GameBoard* initGameboard()
 
 	gb->board[gb->y - 1][gb->x - 1].isStart = TRUE;
 	gb->board[gb->y - 1][gb->x - 1].isEnd = FALSE;	//Redundant, but better safe than sorry.
-	gb->board[gb->y - 1][gb->x - 1].side = S;
+	gb->board[gb->y - 1][gb->x - 1].side = S;		//Water begins flowing from this side. THIS IS NOT WATER DIRECTION.
 
 	//////////////////////////////////
 	///Choose end cell and the side///
@@ -72,213 +64,17 @@ GameBoard* initGameboard()
 	return gb;
 }
 
-//Got this from:
-//https://docs.microsoft.com/en-us/windows/console/clearing-the-screen
-void cls(HANDLE hConsole)
-{
-	COORD coordScreen = { 0, 0 };    // home for the cursor
-	DWORD cCharsWritten;
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
-	DWORD dwConSize;
-
-	// Get the number of character cells in the current buffer.
-	if (!GetConsoleScreenBufferInfo(hConsole, &csbi))
-	{
-		return;
-	}
-
-	dwConSize = csbi.dwSize.X * csbi.dwSize.Y;
-
-	// Fill the entire screen with blanks.
-	if (!FillConsoleOutputCharacter(hConsole,        // Handle to console screen buffer
-		(TCHAR)' ',      // Character to write to the buffer
-		dwConSize,       // Number of cells to write
-		coordScreen,     // Coordinates of first cell
-		&cCharsWritten)) // Receive number of characters written
-	{
-		return;
-	}
-
-	// Get the current text attribute.
-	if (!GetConsoleScreenBufferInfo(hConsole, &csbi))
-	{
-		return;
-	}
-
-	// Set the buffer's attributes accordingly.
-	if (!FillConsoleOutputAttribute(hConsole,         // Handle to console screen buffer
-		csbi.wAttributes, // Character attributes to use
-		dwConSize,        // Number of cells to set attribute
-		coordScreen,      // Coordinates of first cell
-		&cCharsWritten))  // Receive number of characters written
-	{
-		return;
-	}
-
-	// Put the cursor at its home coordinates.
-	SetConsoleCursorPosition(hConsole, coordScreen);
-}
-
-void drawBoardToConsole(GameBoard* gb)
-{
-	_tprintf(L" ");
-	_tprintf(L" ");
-	//Draw water start if it's on the top border
-	for (int i = 0; i < gb->x; i++)
-	{
-		if (gb->board[0][i].isStart == TRUE)
-		{
-			if (gb->board[0][i].side == N)
-				_tprintf(L"\u2193");
-		}
-
-		else if (gb->board[0][i].isEnd == TRUE)
-		{
-			if (gb->board[0][i].side == N)
-				_tprintf(L"\u2191");
-		}
-
-		else
-			_tprintf(L" ");
-
-		_tprintf(L" ");
-	}
-	_tprintf(L"\n");
-
-	_tprintf(L" ");
-	_tprintf(L" ");
-	//Draw top border
-	for (int i = 0; i < gb->x; i++)
-		_tprintf(L"_ ");
-	_tprintf(L"\n");
-
-	//Draw board
-	for (int y = 0; y < gb->y; y++)
-	{
-		if (gb->board[y][0].isStart == TRUE)
-		{
-			if (gb->board[y][0].side == R)
-				_tprintf(L"\u2192");
-		}
-		else if (gb->board[y][0].isEnd == TRUE)
-		{
-			if (gb->board[y][0].side == L)
-				_tprintf(L"\u2190");
-		}
-		else
-			_tprintf(L" ");
-
-		_tprintf(L"|");
-
-		for (int x = 0; x < gb->x; x++)
-		{
-			if (gb->board[y][x].isFlooded == FALSE)
-			{
-				switch (gb->board[y][x].piece)
-				{
-				case E:
-					_tprintf(L"_");
-					break;
-				case V:
-					_tprintf(L"\u2551");
-					break;
-				case H:
-					_tprintf(L"\u2550");
-					break;
-				case UL:
-					_tprintf(L"\u255d");
-					break;
-				case UR:
-					_tprintf(L"\u255a");
-					break;
-				case DL:
-					_tprintf(L"\u2557");
-					break;
-				case DR:
-					_tprintf(L"\u2554");
-					break;
-				default: break;
-				}
-			}
-			if (gb->board[y][x].isFlooded == TRUE)
-			{
-				switch (gb->board[y][x].piece)
-				{
-				case E:
-					_tprintf(L"x");
-					break;
-				case V:
-					_tprintf(L"\u2590");
-					break;
-				case H:
-					_tprintf(L"\u2583");
-					break;
-				case UL:
-					_tprintf(L"\u259f");
-					break;
-				case UR:
-					_tprintf(L"\u2599");
-					break;
-				case DL:
-					_tprintf(L"\u259c");
-					break;
-				case DR:
-					_tprintf(L"\u259b");
-					break;
-				default: break;
-				}
-			}
-
-			_tprintf(L"|");
-		}
-
-		if (gb->board[y][gb->x - 1].isStart == TRUE)
-		{
-			if (gb->board[y][gb->x - 1].side == R)
-				_tprintf(L"\u2190");
-		}
-		else if (gb->board[y][gb->x - 1].isEnd == TRUE)
-		{
-			if (gb->board[y][gb->x - 1].side == R)
-				_tprintf(L"\u2192");
-		}
-		else
-			_tprintf(L" ");
-		_tprintf(L"\n");
-	}
-
-	_tprintf(L" ");
-	_tprintf(L" ");
-	for (int i = 0; i < gb->x; i++)
-	{
-		if (gb->board[gb->y - 1][i].isStart == TRUE)
-		{
-			if (gb->board[gb->y - 1][i].side == S)
-				_tprintf(L"\u2191");
-		}
-		else if (gb->board[gb->y - 1][i].isEnd == TRUE)
-		{
-			if (gb->board[gb->y - 1][i].side == S)
-				_tprintf(L"\u2193");
-		}
-		else
-			_tprintf(L" ");
-		_tprintf(L" ");
-	}
-	_tprintf(L"\n");
-}
-
 DWORD WINAPI waterControlThread(LPVOID param)
 {
-	GameBoard* gb = (GameBoard*) param;
+	FlowControl* fc = (FlowControl*) param;
 
 	int v_current_water_posx = -1;
 	int v_current_water_posy = -1;
 	Side v_water_dir;
 
 	_tprintf(L"10 Seconds until water flows...\n");
-	drawBoardToConsole(gb);
-	Sleep(10000);
+	drawBoardToConsole(&fc->gb);
+	//Sleep(10000);
 
 	//Get the console handle and clear the screen
 	HANDLE hStdout;
@@ -286,34 +82,59 @@ DWORD WINAPI waterControlThread(LPVOID param)
 	cls(hStdout);
 
 	//Find water start location
-	for (int y = 0; y < gb->y; y++)
+	for (int y = 0; y < fc->gb.y; y++)
 	{
-		for (int x = 0; x < gb->x; x++)
+		for (int x = 0; x < fc->gb.x; x++)
 		{
-			if (gb->board[y][x].isStart)
+			if (fc->gb.board[y][x].isStart)
 			{
 				v_current_water_posx = x;
 				v_current_water_posy = y;
-				v_water_dir = gb->board[y][x].side;
+				switch (fc->gb.board[y][x].side)
+				{
+					case S:
+						v_water_dir = N;
+						break;
+					case N:
+						v_water_dir = S;
+						break;
+					case R:
+						v_water_dir = L;
+						break;
+					case L:
+						v_water_dir = R;
+						break;
+					default:
+						v_water_dir = NO;
+						break;
+				}
+				goto StartFound;	//Break out of for()
 			}
 		}
 	}
 
-	if (v_current_water_posx == -1 || v_current_water_posy == -1)
+//Don't kill me :)
+StartFound:
+
+	if (v_current_water_posx == -1 || v_current_water_posy == -1 || v_water_dir == NO)
 	{
 		_tprintf(L"Uninitialized water start position!\n");
 		return -1;
 	}
 
-	while (gb->isGameRunning)
+	while (fc->gb.isGameRunning)
 	{
-		gb->board[v_current_water_posx][v_current_water_posy].isFlooded = TRUE;
+		Sleep(1000);
 
-		PieceType v_current_cell_piece = gb->board[v_current_water_posx][v_current_water_posy].piece;
+		if (!fc->gb.isWaterRunning) continue;
+
+		fc->gb.board[v_current_water_posx][v_current_water_posy].isFlooded = TRUE;
+
+		PieceType v_current_cell_piece = fc->gb.board[v_current_water_posx][v_current_water_posy].piece;
 
 		if(v_current_cell_piece == E)
 		{
-			gb->isGameRunning = FALSE;
+			fc->gb.isGameRunning = FALSE;
 			_tprintf(L"You Lost!\n");
 		}
 		//Yes, I'm nuts. How could you tell?
@@ -330,7 +151,7 @@ DWORD WINAPI waterControlThread(LPVOID param)
 										v_current_cell_piece == UL		||
 										v_current_cell_piece == UR)))
 		{
-			gb->isGameRunning = FALSE;
+			fc->gb.isGameRunning = FALSE;
 			_tprintf(L"You Lost!\n");
 		}
 		else if (	(v_water_dir == L && v_current_cell_piece == DL) ||
@@ -355,9 +176,34 @@ DWORD WINAPI waterControlThread(LPVOID param)
 		}
 
 		cls(hStdout);
-		drawBoardToConsole(gb);
+		drawBoardToConsole(&fc->gb);
+	}
 
-		Sleep(1000);
+	return 0;
+}
+
+DWORD WINAPI cmdControlThread(LPVOID param)
+{
+	FlowControl* fc = (FlowControl*) param;
+	TCHAR cmd[CMD_MAX_LENGHT] = L"";
+
+	while (fc->gb.isGameRunning)
+	{
+		DWORD eventResult = WaitForSingleObject(fc->hEvent, INFINITE);
+
+		if (fc->gb.isGameRunning == FALSE) break;
+
+		if (eventResult == WAIT_OBJECT_0)	//new event, what could this mean? :o
+		{
+			DWORD mutexResult = WaitForSingleObject(fc->hMutex, INFINITE);
+
+			if (mutexResult == WAIT_OBJECT_0)
+			{
+				//CopyMemory(cmd, getLastCmdFromMemory(), sizeof(TCHAR) * CMD_MAX_LENGHT);	//I wonder if this works :o
+			}
+			
+			ReleaseMutex(fc->hMutex);
+		}
 	}
 
 	return 0;

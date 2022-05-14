@@ -139,11 +139,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\Global Data Structures\DrawingFunctions.c" />
     <ClCompile Include="Functions.c" />
     <ClCompile Include="Main.c" />
     <ClCompile Include="SharedMemoryFunctions.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\Global Data Structures\DrawingFunctions.h" />
     <ClInclude Include="..\Global Data Structures\GameBoard.h" />
     <ClInclude Include="Functions.h" />
     <ClInclude Include="SharedMemoryFunctions.h" />

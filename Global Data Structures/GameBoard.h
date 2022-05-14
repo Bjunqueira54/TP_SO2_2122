@@ -1,7 +1,11 @@
 #pragma once
 #include <Windows.h>
 
-typedef enum _piecetype
+#define CMD_MAX_LENGHT 25
+#define DIM 5
+#define DIM_S 25
+
+typedef enum
 {
 	H,	//Horizontal
 	V,	//Vertical
@@ -12,7 +16,7 @@ typedef enum _piecetype
 	E	//Empty
 } PieceType;
 
-typedef enum _side
+typedef enum
 {
 	N,	//North
 	S,	//South
@@ -21,10 +25,11 @@ typedef enum _side
 	NO	//None
 } Side;
 
-typedef struct _gamecell
+typedef struct
 {
 	BOOL isStart;	//Make sure that: 1. Both are FALSE
 	BOOL isEnd;		//2. Only one is TRUE
+	BOOL isEnabled;
 
 	BOOL isFlooded;	//Has water reached this pos?
 
@@ -32,12 +37,30 @@ typedef struct _gamecell
 	Side side;	//Works for both start and end.
 } GameCell;
 
-typedef struct _gameboard
+typedef struct
 {
 	int y;
 	int x;
 
 	BOOL isGameRunning;
+	BOOL isWaterRunning;
 
 	GameCell board[20][20];	//Array of game cells
-} GameBoard, *pGameBoard;
+} GameBoard;
+
+typedef struct
+{
+	int in;
+	int out;
+	TCHAR cmdBuffer[DIM][DIM_S];
+} Buffer;
+
+typedef struct
+{
+	HANDLE hMutex;
+	HANDLE hEvent;
+
+	GameBoard gb;
+
+	Buffer buffer;
+} FlowControl;

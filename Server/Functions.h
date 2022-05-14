@@ -3,5 +3,5 @@
 #include "..\Global Data Structures\GameBoard.h"
 
 GameBoard* initGameboard();
-void drawBoardToConsole(GameBoard*);
 DWORD WINAPI waterControlThread(LPVOID);
+DWORD WINAPI cmdControlThread(LPVOID);

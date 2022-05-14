@@ -3,69 +3,57 @@
 #include "SharedMemoryFunctions.h"
 #include "Functions.h"
 
-TCHAR mapSharedMemoryName[] = TEXT("GameMemory");
-TCHAR boardSharedMemoryName[] = TEXT("BoardMemory");
+TCHAR memoryName[] = TEXT("GameMemory");
 TCHAR mutexName[] = TEXT("MutexMemory");
 TCHAR mainEventName[] = TEXT("EventMemory");
 
 BOOL running = TRUE;
 
-void initSharedMemory(GameBoard* gb, HANDLE* gameMemoryHandle, HANDLE* boardMemoryHandle, HANDLE* hMutex, HANDLE* hEvent)
+void initSharedMemory(FlowControl* fc, HANDLE* gameMemoryHandle)
 {
-	unsigned int boardSize = sizeof(GameCell) * (gb->y) * (gb->x);
-	*gameMemoryHandle = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(GameBoard), mapSharedMemoryName);
-	*boardMemoryHandle = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, boardSize, boardSharedMemoryName);
+	unsigned int boardSize = sizeof(GameCell) * (fc->gb.y) * (fc->gb.x);
+	*gameMemoryHandle = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(FlowControl), memoryName);
 
 	if (gameMemoryHandle == NULL)
 	{
 		_tprintf(TEXT("Could not create the game shared memory blocks: (%d).\n"), GetLastError());
 		return;
 	}
-	if (boardMemoryHandle == NULL)
-	{
-		_tprintf(L"Could not create the board shared memory block: (%d).\n", GetLastError());
-		return;
-	}
 
-	*hMutex = CreateMutex(NULL, FALSE, mutexName);
+	fc->hMutex = CreateMutex(NULL, FALSE, mutexName);
 
-	if (hMutex == NULL)
+	if (fc->hMutex == NULL)
 		_tprintf(TEXT("Could not create the shared memory blocks: (%d).\n"), GetLastError());
 	else if (GetLastError() == ERROR_ALREADY_EXISTS)
 		_tprintf(TEXT("Mutex already exists\n"));
 
-	*hEvent = CreateEvent(NULL, TRUE, FALSE, mainEventName);
-	if (hEvent == NULL)
+	fc->hEvent = CreateEvent(NULL, TRUE, FALSE, mainEventName);
+	if (fc->hEvent == NULL)
 	{
 		_tprintf(L"Error creating event handle: (%d)!\n", GetLastError());
 		return;
 	}
 }
 
-void UnmapSharedMemory(HANDLE gameMemoryHandle, HANDLE boardMemoryHandle)
+void UnmapSharedMemory(HANDLE gameMemoryHandle)
 {
 	CloseHandle(gameMemoryHandle);
-	CloseHandle(boardMemoryHandle);
 }
 
-//Code from last year's project. Adapt as necessary
-
-void copyBoardtoMemory(GameBoard* gb, HANDLE gameMemoryHandle, HANDLE boardMemoryHandle)
+void copyFlowControltoMemory(FlowControl* fc, HANDLE gameMemoryHandle)
 {
-	unsigned int boardSize = sizeof(GameCell) * gb->y * gb->x;
-	GameBoard* mem_gb = (GameBoard*) MapViewOfFile(gameMemoryHandle, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(GameBoard));
-	//GameCell** mem_board = (GameCell**) MapViewOfFile(boardMemoryHandle, FILE_MAP_ALL_ACCESS, 0, 0, boardSize);
+	FlowControl* mem_fc = (FlowControl*) MapViewOfFile(gameMemoryHandle, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
 
-	if (mem_gb == NULL) //|| mem_board == NULL)
+	if (mem_fc == NULL)
 	{
 		_tprintf(L"Error mapping memory: (%d)!\n", GetLastError());
 		return -1;
 	}
 
-	memcpy((void*)mem_gb, (void*)gb, sizeof(GameBoard));
-	//memcpy((void*)mem_board, (void*) gb->board, boardSize);
+	memcpy((void*) mem_fc, (void*) fc, sizeof(FlowControl));
 }
 
+//Code from last year's project. Adapt as necessary
 /*
 DWORD WINAPI readPagedMemory(GameBoard* gb, HANDLE hEvent)
 {
