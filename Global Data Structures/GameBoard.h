@@ -39,5 +39,5 @@ typedef struct _gameboard
 
 	BOOL isGameRunning;
 
-	GameCell** board;	//Array of game cells
+	GameCell board[20][20];	//Array of game cells
 } GameBoard, *pGameBoard;

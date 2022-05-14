@@ -5,8 +5,8 @@
 
 #include "..\Global Data Structures\GameBoard.h"
 
-HANDLE initSharedMemory(HANDLE, HANDLE);
-void copyBoardtoMemory(GameBoard*, HANDLE);
+void initSharedMemory(GameBoard*, HANDLE*, HANDLE*, HANDLE*, HANDLE*);
+void copyBoardtoMemory(GameBoard*, HANDLE, HANDLE);
 void UnmapSharedMemory(HANDLE);
 //DWORD WINAPI readPagedMemory();
 void triggerEvent(HANDLE);

@@ -6,36 +6,56 @@
 
 #include "..\Global Data Structures\GameBoard.h"
 
-TCHAR mapSharedMemoryName[] = TEXT("MapMemory");
+TCHAR gameSharedMemoryName[] = TEXT("GameMemory");
+TCHAR boardSharedMemoryName[] = TEXT("BoardMemory");
 TCHAR mutexName[] = TEXT("MutexMemory");
 TCHAR mainEventName[] = TEXT("EventMemory");
 
-HANDLE mapMemoryHandle;
+HANDLE gameMemoryHandle;
+HANDLE boardMemoryHandle;
 HANDLE hMutex;
 
 void initSharedMemory()
 {
-	//mapMemoryHandle = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(GameBoard), mapSharedMemoryName);
-	mapMemoryHandle = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, mapSharedMemoryName);
+	gameMemoryHandle = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, gameSharedMemoryName);
+	boardMemoryHandle = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, boardSharedMemoryName);
 
-	if (mapMemoryHandle == NULL)
+	if (gameMemoryHandle == NULL)
 	{
-		_tprintf(TEXT("Could not create the shared memory blocks: (%d).\n"), GetLastError());
+		_tprintf(L"Could not open the game shared memory block: (%d).\n", GetLastError());
+		return;
+	}
+
+	if (boardMemoryHandle == NULL)
+	{
+		_tprintf(L"Could not open the board shared memory block: (%d).\n", GetLastError());
 		return;
 	}
 
 	hMutex = OpenMutex(NULL, FALSE, mutexName);
+	if (hMutex == NULL)
+	{
+		_tprintf(L"Could not open the mutex: (%d).\n", GetLastError());
+		return;
+	}
 }
 
 GameBoard* readGameBoardFromMemory()
 {
-	GameBoard* mem_gb = (GameBoard*)MapViewOfFile(mapMemoryHandle, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(GameBoard));
-
+	GameBoard* mem_gb = (GameBoard*)MapViewOfFile(gameMemoryHandle, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(GameBoard));
 	if (mem_gb == NULL)
 	{
-		_tprintf(L"Error mapping memory!\n");
+		_tprintf(L"Error mapping game memory: (%d)!\n", GetLastError());
 		return -1;
 	}
+
+	/*unsigned int boardSize = sizeof(GameCell) * mem_gb->y * mem_gb->x;
+	GameCell** mem_board = (GameCell**)MapViewOfFile(boardMemoryHandle, FILE_MAP_ALL_ACCESS, 0, 0, boardSize);
+	if (mem_board == NULL)
+	{
+		_tprintf(L"Error mapping board memory: (%d)!\n", GetLastError());
+		return -1;
+	}*/
 
 	GameBoard* gb = (GameBoard*) malloc(sizeof(GameBoard));
 
@@ -45,7 +65,7 @@ GameBoard* readGameBoardFromMemory()
 		return -1;
 	}
 
-	gb->board = (GameCell**) malloc(sizeof(GameCell*) * mem_gb->x);
+	/*gb->board = (GameCell**)malloc(sizeof(GameCell*) * mem_gb->x);
 
 	if (gb->board == NULL)
 	{
@@ -58,10 +78,10 @@ GameBoard* readGameBoardFromMemory()
 		gb->board[i] = (GameCell*) malloc(sizeof(GameCell) * mem_gb->y);
 
 		if (gb->board[i] == NULL) return NULL;
-	}
+	}*/
 
 	CopyMemory(gb, mem_gb, sizeof(GameBoard));
-	CopyMemory(gb->board, mem_gb->board, sizeof(GameBoard) * mem_gb->y * mem_gb->x);
+	//CopyMemory(gb->board, mem_board, boardSize);
 
 	return gb;
 }

@@ -24,7 +24,9 @@ GameBoard* initGameboard()
 	gb->y = 20;	//Registry Values
 	gb->x = 20;	//Replace later with correct values
 
-	gb->board = (GameCell**) malloc(gb->x * sizeof(GameCell*));
+	//GameCell** board = createBoard(gb->y, gb->x);
+
+	/*gb->board = (GameCell**)malloc(gb->x * sizeof(GameCell*));
 
 	if (gb->board == NULL) return NULL;
 
@@ -33,7 +35,7 @@ GameBoard* initGameboard()
 		gb->board[i] = (GameCell*) malloc(gb->y * sizeof(GameCell));
 
 		if (gb->board[i] == NULL) return NULL;
-	}
+	}*/
 
 	///////////////
 	///Set cells///

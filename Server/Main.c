@@ -31,13 +31,14 @@ int _tmain(int argc, TCHAR** argv)
 
 	HANDLE hEvent = NULL;
 	HANDLE hMutex = NULL;
-	HANDLE mapMemoryHandle;
+	HANDLE gameMemoryHandle = NULL;
+	HANDLE boardMemoryHandle = NULL;
 
-	mapMemoryHandle = initSharedMemory(&hMutex, &hEvent);
+	initSharedMemory(gb, &gameMemoryHandle, &boardMemoryHandle, &hMutex, &hEvent);
 
 	WaitForSingleObject(hMutex, INFINITE);
 
-	copyBoardtoMemory(gb, mapMemoryHandle);
+	copyBoardtoMemory(gb, gameMemoryHandle, boardMemoryHandle);
 
 	ReleaseMutex(hMutex);
 
