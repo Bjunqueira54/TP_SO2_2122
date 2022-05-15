@@ -188,26 +188,34 @@ DWORD WINAPI cmdControlThread(LPVOID param)
 {
 	_tprintf(L"cmdControlThread: I'm starting\n");
 	Data* data = (Data*) param;
-	FlowControl* fc = data->fc;
+	if (data == NULL)
+	{
+		_tprintf(L"cmdControlThread: where's my parameter?\n");
+		return -1;
+	}
 
-	while (fc->gameboard.isGameRunning)
+	while (data->fc->gameboard.isGameRunning)
 	{
 		_tprintf(L"cmdControlThread: I'm waiting for CommandEvent\n");
 		if (WaitForSingleObject(data->hCommandEvent, INFINITE) == WAIT_OBJECT_0)	//new event, what could this mean? :o
 		{
 			_tprintf(L"cmdControlThread: I've caught CommandEvent\n");
-			if (fc->gameboard.isGameRunning == FALSE) break;
+			if (data->fc->gameboard.isGameRunning == FALSE) break;
 
 			_tprintf(L"cmdControlThread: I'm waiting to control the mutex\n");
 			if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)	//Take control of the mutex
 			{
 				_tprintf(L"cmdControlThread: I'm controlling the mutex\n");
-				int out = fc->buffer.out;
-				_tprintf(L"Received from server: %s\n", fc->buffer.cmdBuffer[out]);
+
+				data->fc = MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
+				if (data->fc == NULL) continue;
+
+				int out = data->fc->buffer.out;
+				_tprintf(L"Received from server: %s\n", data->fc->buffer.cmdBuffer[out]);
 
 				//update buffer
 				out = (out + 1) % DIM;
-				fc->buffer.out = out;
+				data->fc->buffer.out = out;
 
 				ResetEvent(data->hCommandEvent);
 				_tprintf(L"cmdControlThread: I've RESET the CommandEvent\n");

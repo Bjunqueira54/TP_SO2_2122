@@ -81,37 +81,32 @@ int _tmain(int argc, TCHAR** argv)
 
 #endif
 
-	HANDLE gameMemoryHandle;
+	Data* data = malloc(sizeof(Data));
+	if (data == NULL) return -1;
 
-	gameMemoryHandle = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, memoryName);
-
-	if (gameMemoryHandle == NULL)
+	data->hGameMemory = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, memoryName);
+	if (data->hGameMemory == NULL)
 	{
 		_tprintf(L"Could not open the game shared memory block: (%d).\n", GetLastError());
-		return;
+		return -1;
 	}
 
-	FlowControl* fc = getFlowControlFromMemory(gameMemoryHandle);
-
-	if (fc == NULL)
+	data->fc = getFlowControlFromMemory(data->hGameMemory);
+	if (data->fc == NULL)
 	{
 		_tprintf(L"Error on readFlowControlFromMemory(): (%d)!\n", GetLastError());
 		return -1;
 	}
 
-	Data* data = malloc(sizeof(Data));
-	if (data == NULL) return -1;
+	data->hBoardEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, boardEventName);
+	data->hCommandEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, cmdEventName);
+	data->hMutex = OpenMutex(MUTEX_ALL_ACCESS, FALSE, mutexName);
 
-	data->fc = fc;
-	HANDLE hBoardEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, boardEventName);
-	HANDLE hCommandEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, cmdEventName);
-	HANDLE hMutex = OpenMutex(MUTEX_ALL_ACCESS, FALSE, mutexName);
-
-	data->hBoardEvent = hBoardEvent;
-	data->hCommandEvent = hCommandEvent;
-	data->hMutex = hMutex;
-
-	if (data->hBoardEvent == NULL || data->hCommandEvent == NULL || data->hMutex == NULL) return -1;
+	if (data->hBoardEvent == NULL || data->hCommandEvent == NULL || data->hMutex == NULL)
+	{
+		_tprintf(L"Error creating handles: (%d)!\n", GetLastError());
+		return -1;
+	}
 
 	HANDLE hStdout;
 	hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -123,25 +118,25 @@ int _tmain(int argc, TCHAR** argv)
 		return -1;
 	}
 
-	while (fc->gameboard.isGameRunning)
+	while (data->fc->gameboard.isGameRunning)
 	{
 		_tprintf(L"Command to send to the server: ");
 		TCHAR cmd[CMD_MAX_LENGTH];
 		_fgetts(cmd, CMD_MAX_LENGTH, stdin);
 
 		_tprintf(L"MainThread: I'm waiting to control the mutex\n");
-		if (WaitForSingleObject(hMutex, INFINITE) == WAIT_OBJECT_0)
+		if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
 		{
 			_tprintf(L"MainThread: I'm controlling the mutex\n");
-			int in = fc->buffer.in;
-			memcpy(fc->buffer.cmdBuffer[in], cmd, CMD_MAX_LENGTH);
+			int in = data->fc->buffer.in;
+			memcpy(data->fc->buffer.cmdBuffer[in], cmd, CMD_MAX_LENGTH);
 			in = (in + 1) % DIM;
-			fc->buffer.in = in;
+			data->fc->buffer.in = in;
 
-			SetEvent(hCommandEvent);
+			SetEvent(data->hCommandEvent);
 			_tprintf(L"MainThread: I've SET the CommandEvent\n");
 		}
-		ReleaseMutex(hMutex);
+		ReleaseMutex(data->hMutex);
 		_tprintf(L"MainThread: I've released the mutex\n");
 	}
 

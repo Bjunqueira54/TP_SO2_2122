@@ -48,11 +48,13 @@ int _tmain(int argc, TCHAR** argv)
 		CopyMemory(fc->buffer.cmdBuffer[i], L"\0", sizeof(TCHAR));
 	}
 
-	HANDLE gameMemoryHandle = NULL;
+	//HANDLE gameMemoryHandle = NULL;
 	Data* data = malloc(sizeof(Data));
 	if (data == NULL) return -1;
 
-	initSharedMemory(data, &gameMemoryHandle);
+	data->hGameMemory = NULL;
+
+	initSharedMemory(data, &data->hGameMemory);
 	data->fc = fc;
 
 	//isto é só para fazer com que o InteliSense pare de
@@ -68,7 +70,7 @@ int _tmain(int argc, TCHAR** argv)
 	_tprintf(L"MainThread: I'm controlling the mutex\n");
 	fc->gameboard.isGameRunning = TRUE;
 
-	copyFlowControltoMemory(fc, gameMemoryHandle);
+	copyFlowControltoMemory(fc, data->hGameMemory);
 
 	ReleaseMutex(data->hMutex);
 	_tprintf(L"MainThread: I've released the mutex\n");
@@ -97,7 +99,7 @@ int _tmain(int argc, TCHAR** argv)
 
 	_tprintf(L"Game ended.\n");
 
-	UnmapSharedMemory(gameMemoryHandle);
+	UnmapSharedMemory(data->hGameMemory);
 	free(fc);
 
 	return 0;

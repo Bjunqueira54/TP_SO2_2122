@@ -70,6 +70,8 @@ typedef struct
 {
 	FlowControl* fc;
 
+	HANDLE hGameMemory;
+
 	HANDLE hMutex;
 
 	HANDLE hBoardEvent;
