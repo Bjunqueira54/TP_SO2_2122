@@ -66,31 +66,24 @@ GameBoard* initGameboard()
 
 DWORD WINAPI waterControlThread(LPVOID param)
 {
-	FlowControl* fc = (FlowControl*) param;
+	_tprintf(L"waterControlThread: started\n");
+	Data* data = (Data*) param;
+	FlowControl* fc = data->fc;
 
 	int v_current_water_posx = -1;
 	int v_current_water_posy = -1;
 	Side v_water_dir;
 
-	_tprintf(L"10 Seconds until water flows...\n");
-	drawBoardToConsole(&fc->gb);
-	//Sleep(10000);
-
-	//Get the console handle and clear the screen
-	HANDLE hStdout;
-	hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
-	cls(hStdout);
-
 	//Find water start location
-	for (int y = 0; y < fc->gb.y; y++)
+	for (int y = 0; y < fc->gameboard.y; y++)
 	{
-		for (int x = 0; x < fc->gb.x; x++)
+		for (int x = 0; x < fc->gameboard.x; x++)
 		{
-			if (fc->gb.board[y][x].isStart)
+			if (fc->gameboard.board[y][x].isStart)
 			{
 				v_current_water_posx = x;
 				v_current_water_posy = y;
-				switch (fc->gb.board[y][x].side)
+				switch (fc->gameboard.board[y][x].side)
 				{
 					case S:
 						v_water_dir = N;
@@ -122,61 +115,70 @@ StartFound:
 		return -1;
 	}
 
-	while (fc->gb.isGameRunning)
+	_tprintf(L"waterControlThread: Found start position\n");
+
+	while (fc->gameboard.isGameRunning)
 	{
 		Sleep(1000);
 
-		if (!fc->gb.isWaterRunning) continue;
+		if (!fc->gameboard.isWaterRunning) continue;
 
-		fc->gb.board[v_current_water_posx][v_current_water_posy].isFlooded = TRUE;
+		_tprintf(L"waterControlThread: water is flowing\n");
 
-		PieceType v_current_cell_piece = fc->gb.board[v_current_water_posx][v_current_water_posy].piece;
+		if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+		{
+			_tprintf(L"waterControlThread: I'm controlling the mutex\n");
+			fc->gameboard.board[v_current_water_posx][v_current_water_posy].isFlooded = TRUE;
 
-		if(v_current_cell_piece == E)
-		{
-			fc->gb.isGameRunning = FALSE;
-			_tprintf(L"You Lost!\n");
-		}
-		//Yes, I'm nuts. How could you tell?
-		else if ((v_water_dir == L &&	(v_current_cell_piece == V		||
-										v_current_cell_piece == UR		||
-										v_current_cell_piece == DR))	||
-				(v_water_dir == R &&	(v_current_cell_piece == V		||
-										v_current_cell_piece == UL		||
-										v_current_cell_piece == DL))	||
-				(v_water_dir == S &&	(v_current_cell_piece == H		||
-										v_current_cell_piece == DL		||
-										v_current_cell_piece == DR))	||
-				(v_water_dir == N &&	(v_current_cell_piece == H		||
-										v_current_cell_piece == UL		||
-										v_current_cell_piece == UR)))
-		{
-			fc->gb.isGameRunning = FALSE;
-			_tprintf(L"You Lost!\n");
-		}
-		else if (	(v_water_dir == L && v_current_cell_piece == DL) ||
-					(v_water_dir == R && v_current_cell_piece == DR))
-		{
-			v_water_dir = S;
-		}
-		else if (	(v_water_dir == L && v_current_cell_piece == UL) ||
-					(v_water_dir == R && v_current_cell_piece == UR))
-		{
-			v_water_dir = N;
-		}
-		else if (	(v_water_dir == N && v_current_cell_piece == UL) ||
-					(v_water_dir == S && v_current_cell_piece == DL))
-		{
-			v_water_dir = L;
-		}
-		else if (	(v_water_dir == N && v_current_cell_piece == UR) ||
-					(v_water_dir == S && v_current_cell_piece == DR))
-		{
-			v_water_dir = R;
-		}
+			PieceType v_current_cell_piece = fc->gameboard.board[v_current_water_posx][v_current_water_posy].piece;
 
-		cls(hStdout);
-		drawBoardToConsole(&fc->gb);
+			if(v_current_cell_piece == E)
+			{
+				fc->gameboard.isGameRunning = FALSE;
+				_tprintf(L"You Lost!\n");
+			}
+			//Yes, I'm nuts. How could you tell?
+			else if ((v_water_dir == L &&	(v_current_cell_piece == V		||
+											v_current_cell_piece == UR		||
+											v_current_cell_piece == DR))	||
+					(v_water_dir == R &&	(v_current_cell_piece == V		||
+											v_current_cell_piece == UL		||
+											v_current_cell_piece == DL))	||
+					(v_water_dir == S &&	(v_current_cell_piece == H		||
+											v_current_cell_piece == DL		||
+											v_current_cell_piece == DR))	||
+					(v_water_dir == N &&	(v_current_cell_piece == H		||
+											v_current_cell_piece == UL		||
+											v_current_cell_piece == UR)))
+			{
+				fc->gameboard.isGameRunning = FALSE;
+				_tprintf(L"You Lost!\n");
+			}
+			else if (	(v_water_dir == L && v_current_cell_piece == DL) ||
+						(v_water_dir == R && v_current_cell_piece == DR))
+			{
+				v_water_dir = S;
+			}
+			else if (	(v_water_dir == L && v_current_cell_piece == UL) ||
+						(v_water_dir == R && v_current_cell_piece == UR))
+			{
+				v_water_dir = N;
+			}
+			else if (	(v_water_dir == N && v_current_cell_piece == UL) ||
+						(v_water_dir == S && v_current_cell_piece == DL))
+			{
+				v_water_dir = L;
+			}
+			else if (	(v_water_dir == N && v_current_cell_piece == UR) ||
+						(v_water_dir == S && v_current_cell_piece == DR))
+			{
+				v_water_dir = R;
+			}
+		}
+		SetEvent(data->hBoardEvent);
+		_tprintf(L"waterControlThread: I've SET the BoardEvent\n");
+		ReleaseMutex(data->hMutex);
+		_tprintf(L"waterControlThread: I've released the mutex\n");
 	}
 
 	return 0;
@@ -184,25 +186,34 @@ StartFound:
 
 DWORD WINAPI cmdControlThread(LPVOID param)
 {
-	FlowControl* fc = (FlowControl*) param;
-	TCHAR cmd[CMD_MAX_LENGHT] = L"";
+	_tprintf(L"cmdControlThread: I'm starting\n");
+	Data* data = (Data*) param;
+	FlowControl* fc = data->fc;
 
-	while (fc->gb.isGameRunning)
+	while (fc->gameboard.isGameRunning)
 	{
-		DWORD eventResult = WaitForSingleObject(fc->hEvent, INFINITE);
-
-		if (fc->gb.isGameRunning == FALSE) break;
-
-		if (eventResult == WAIT_OBJECT_0)	//new event, what could this mean? :o
+		_tprintf(L"cmdControlThread: I'm waiting for CommandEvent\n");
+		if (WaitForSingleObject(data->hCommandEvent, INFINITE) == WAIT_OBJECT_0)	//new event, what could this mean? :o
 		{
-			DWORD mutexResult = WaitForSingleObject(fc->hMutex, INFINITE);
+			_tprintf(L"cmdControlThread: I've caught CommandEvent\n");
+			if (fc->gameboard.isGameRunning == FALSE) break;
 
-			if (mutexResult == WAIT_OBJECT_0)
+			_tprintf(L"cmdControlThread: I'm waiting to control the mutex\n");
+			if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)	//Take control of the mutex
 			{
-				//CopyMemory(cmd, getLastCmdFromMemory(), sizeof(TCHAR) * CMD_MAX_LENGHT);	//I wonder if this works :o
+				_tprintf(L"cmdControlThread: I'm controlling the mutex\n");
+				int out = fc->buffer.out;
+				_tprintf(L"Received from server: %s\n", fc->buffer.cmdBuffer[out]);
+
+				//update buffer
+				out = (out + 1) % DIM;
+				fc->buffer.out = out;
+
+				ResetEvent(data->hCommandEvent);
+				_tprintf(L"cmdControlThread: I've RESET the CommandEvent\n");
 			}
-			
-			ReleaseMutex(fc->hMutex);
+			ReleaseMutex(data->hMutex);
+			_tprintf(L"cmdControlThread: I've RELEASED the mutex\n");
 		}
 	}
 

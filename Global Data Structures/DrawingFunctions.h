@@ -5,4 +5,5 @@
 #include "GameBoard.h"
 
 void drawBoardToConsole(GameBoard*);
-void cls(HANDLE);
+void ClearConsoleScreen(HANDLE);
+void OverwriteConsoleScreen(HANDLE);

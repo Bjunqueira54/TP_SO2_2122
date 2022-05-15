@@ -1,10 +1,12 @@
 #pragma once
-
 #include "DrawingFunctions.h"
+
+#define MAX(a, b) (a>b ? a : b)
 
 //Got this from:
 //https://docs.microsoft.com/en-us/windows/console/clearing-the-screen
-void cls(HANDLE hConsole)
+//Use this to completely clear the console screen
+void ClearConsoleScreen(HANDLE hConsole)
 {
 	COORD coordScreen = { 0, 0 };    // home for the cursor
 	DWORD cCharsWritten;
@@ -21,10 +23,10 @@ void cls(HANDLE hConsole)
 
 	// Fill the entire screen with blanks.
 	if (!FillConsoleOutputCharacter(hConsole,        // Handle to console screen buffer
-		(TCHAR)' ',      // Character to write to the buffer
-		dwConSize,       // Number of cells to write
-		coordScreen,     // Coordinates of first cell
-		&cCharsWritten)) // Receive number of characters written
+									(TCHAR)' ',      // Character to write to the buffer
+									dwConSize,       // Number of cells to write
+									coordScreen,     // Coordinates of first cell
+									&cCharsWritten)) // Receive number of characters written
 	{
 		return;
 	}
@@ -37,15 +39,24 @@ void cls(HANDLE hConsole)
 
 	// Set the buffer's attributes accordingly.
 	if (!FillConsoleOutputAttribute(hConsole,         // Handle to console screen buffer
-		csbi.wAttributes, // Character attributes to use
-		dwConSize,        // Number of cells to set attribute
-		coordScreen,      // Coordinates of first cell
-		&cCharsWritten))  // Receive number of characters written
+									csbi.wAttributes, // Character attributes to use
+									dwConSize,        // Number of cells to set attribute
+									coordScreen,      // Coordinates of first cell
+									&cCharsWritten))  // Receive number of characters written
 	{
 		return;
 	}
 
 	// Put the cursor at its home coordinates.
+	SetConsoleCursorPosition(hConsole, coordScreen);
+}
+
+//Use this to simple reset the cursor back to the start
+//and perform a new draw.
+//Usefull to 'simulate' double-buffering
+void OverwriteConsoleScreen(HANDLE hConsole)
+{
+	COORD coordScreen = { 0, 0 };    // home for the cursor
 	SetConsoleCursorPosition(hConsole, coordScreen);
 }
 
@@ -162,6 +173,9 @@ void drawBoardToConsole(GameBoard* gb)
 			_tprintf(L"|");
 		}
 
+		//this gives a very valid warning,
+		//but the monitor has no way to enforce
+		//the limits.
 		if (gb->board[y][gb->x - 1].isStart == TRUE)
 		{
 			if (gb->board[y][gb->x - 1].side == R)

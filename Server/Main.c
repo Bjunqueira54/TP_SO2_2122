@@ -8,6 +8,11 @@
 #include "Functions.h"
 #include "SharedMemoryFunctions.h"
 
+TCHAR memoryName[] = TEXT("GameMemory");
+TCHAR mutexName[] = TEXT("MutexMemory");
+TCHAR boardEventName[] = TEXT("BoardEvent");
+TCHAR cmdEventName[] = TEXT("CommandEvent");
+
 //SERVER
 int _tmain(int argc, TCHAR** argv)
 {
@@ -35,49 +40,54 @@ int _tmain(int argc, TCHAR** argv)
 	}
 
 	//init all flow control fields
-	CopyMemory(&fc->gb, initGameboard(), sizeof(GameBoard));
-	fc->hEvent = NULL;
-	fc->hMutex = NULL;
+	CopyMemory(&fc->gameboard, initGameboard(), sizeof(GameBoard));
 	fc->buffer.in = 0;
 	fc->buffer.out = 0;
 	for (int i = 0; i < DIM; i++)
-		*fc->buffer.cmdBuffer[i] = NULL;
+	{
+		CopyMemory(fc->buffer.cmdBuffer[i], L"\0", sizeof(TCHAR));
+	}
 
 	HANDLE gameMemoryHandle = NULL;
+	Data* data = malloc(sizeof(Data));
+	if (data == NULL) return -1;
 
-	initSharedMemory(fc, &gameMemoryHandle);
+	initSharedMemory(data, &gameMemoryHandle);
+	data->fc = fc;
 
 	//isto é só para fazer com que o InteliSense pare de
 	//moer o meu juizo á custa dos handles talvez serem 0.
-	if (fc->hEvent == NULL || fc->hMutex == NULL)
+	if (data->hBoardEvent == NULL || data->hMutex == NULL || data->hCommandEvent == NULL)
 	{
 		_tprintf(L"What happened inside initSharedMemory? Handles are not innitialized: (%d)!\n", GetLastError());
 		return -1;
 	}
 
-	WaitForSingleObject(fc->hMutex, INFINITE);
-
-	fc->gb.isGameRunning = TRUE;
+	_tprintf(L"MainThread: I'm waiting for the mutex\n");
+	WaitForSingleObject(data->hMutex, INFINITE);
+	_tprintf(L"MainThread: I'm controlling the mutex\n");
+	fc->gameboard.isGameRunning = TRUE;
 
 	copyFlowControltoMemory(fc, gameMemoryHandle);
 
-	ReleaseMutex(fc->hMutex);
+	ReleaseMutex(data->hMutex);
+	_tprintf(L"MainThread: I've released the mutex\n");
 
-	HANDLE waterThreadHandle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) waterControlThread, (LPVOID) fc, NULL, NULL);
+	HANDLE waterThreadHandle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) waterControlThread, (LPVOID) data, NULL, NULL);
 	if (waterThreadHandle == NULL)
 	{
 		_tprintf(L"Cannot create waterThreadControl: (%d)!\n", GetLastError());
 		return -1;
 	}
 
-	HANDLE cmdThreadHandle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)cmdControlThread, (LPVOID) fc, NULL, NULL);
+	HANDLE cmdThreadHandle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)cmdControlThread, (LPVOID) data, NULL, NULL);
 	if (cmdThreadHandle == NULL)
 	{
 		_tprintf(L"Cannot create cmdThreadControl: (%d)!\n", GetLastError());
 		return -1;
 	}
 
-	while (fc->gb.isGameRunning)
+	while (fc->gameboard.isGameRunning)
 	{
 		//we take commands here?
 	}

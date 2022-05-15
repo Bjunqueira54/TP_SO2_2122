@@ -1,9 +1,13 @@
 #pragma once
 #include <Windows.h>
-
-#define CMD_MAX_LENGHT 25
 #define DIM 5
-#define DIM_S 25
+#define CMD_MAX_LENGTH 25
+
+extern TCHAR memoryName[];
+extern TCHAR mutexName[];
+extern TCHAR boardEventName[];
+extern TCHAR cmdEventName[];
+
 
 typedef enum
 {
@@ -52,15 +56,22 @@ typedef struct
 {
 	int in;
 	int out;
-	TCHAR cmdBuffer[DIM][DIM_S];
+	TCHAR cmdBuffer[DIM][CMD_MAX_LENGTH];
 } Buffer;
 
 typedef struct
 {
-	HANDLE hMutex;
-	HANDLE hEvent;
-
-	GameBoard gb;
+	GameBoard gameboard;
 
 	Buffer buffer;
 } FlowControl;
+
+typedef struct
+{
+	FlowControl* fc;
+
+	HANDLE hMutex;
+
+	HANDLE hBoardEvent;
+	HANDLE hCommandEvent;
+} Data;
