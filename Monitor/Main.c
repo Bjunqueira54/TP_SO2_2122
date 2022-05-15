@@ -12,63 +12,70 @@ TCHAR mutexName[] = TEXT("MutexMemory");
 TCHAR boardEventName[] = TEXT("BoardEvent");
 TCHAR cmdEventName[] = TEXT("CommandEvent");
 
-FlowControl* getFlowControlFromMemory(HANDLE gameMemoryHandle)
-{
-	FlowControl* mem_fc = (FlowControl*) MapViewOfFile(gameMemoryHandle, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
-	if (mem_fc == NULL)
-	{
-		_tprintf(L"Error mapping game memory: (%d)!\n", GetLastError());
-		return -1;
-	}
-
-	return mem_fc;
-}
-
 DWORD WINAPI drawingThread(LPVOID param)
 {
-	_tprintf(L"drawingThread: I'm starting\n");
-
+	GameBoard* gb;
 	Data* data = (Data*)param;
-	FlowControl* fc = data->fc;
-
-	HANDLE hBoardEvent = data->hBoardEvent;
-	HANDLE hMutex = data->hMutex;
+	if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+	{
+		UnmapViewOfFile(data->fc);
+		data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
+		if (data->fc == NULL)
+		{
+			ReleaseMutex(data->hMutex);
+			return -1;
+		}
+	}
+	ReleaseMutex(data->hMutex);
 
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
-	while (fc->gameboard.isGameRunning)
+	while (data->fc->gameboard.isGameRunning)
 	{
-		_tprintf(L"drawingThread: I'm waiting for BoardEvent\n");
-		DWORD boardEventResult = WaitForSingleObject(hBoardEvent, INFINITE);
+		DWORD boardEventResult = WaitForSingleObject(data->hBoardEvent, INFINITE);
 		if (boardEventResult == WAIT_OBJECT_0)	//we got confirmation that the board was modified
 		{
-			_tprintf(L"drawingThread: I've found BoardEvent\n");
-			if (!fc->gameboard.isGameRunning) break;
+			if (!data->fc->gameboard.isGameRunning) break;
 
 			CONSOLE_SCREEN_BUFFER_INFO csbi;
 			if (!GetConsoleScreenBufferInfo(hConsole, &csbi))
 			{
-				ResetEvent(hBoardEvent);
+				ResetEvent(data->hBoardEvent);
 				continue;
 			}
 
 			COORD currentScreenCoord = csbi.dwCursorPosition;
 			OverwriteConsoleScreen(hConsole);
 
-			_tprintf(L"drawingThread: I'm waiting to control the mutex\n");
-			if (WaitForSingleObject(hMutex, INFINITE) == WAIT_OBJECT_0)
+			if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
 			{
-				_tprintf(L"drawingThread: I'm controlling the mutex\n");
-				drawBoardToConsole(&fc->gameboard.board);
-				ResetEvent(hBoardEvent);
-				_tprintf(L"drawingThread: I've RESET the BoardEvent\n");
-				
+				UnmapViewOfFile(data->fc);
+				data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
+				if (data->fc == NULL)
+				{
+					ReleaseMutex(data->hMutex);
+					return -1;
+				}
+				gb = malloc(sizeof(GameBoard));
+				if (gb == NULL) return -1;
+
+				//I was having problems with memory read exceptions
+				//and I figured one of the processes was overwritting the
+				//board.
+				//Since I don't want to stall everything with
+				//a slow drawing operation, I just snapshot the board and draw it.
+				memcpy(gb, &data->fc->gameboard, sizeof(GameBoard));
 			}
-			ReleaseMutex(hMutex);
-			_tprintf(L"drawingThread: I've released the mutex\n");
+			else continue;
+			ResetEvent(data->hBoardEvent);
+			ReleaseMutex(data->hMutex);
+			drawBoardToConsole(gb);
+			free(gb);
 			SetConsoleCursorPosition(hConsole, currentScreenCoord);
 		}
 	}
+
+	return 0;
 }
 
 //MONITOR
@@ -91,7 +98,7 @@ int _tmain(int argc, TCHAR** argv)
 		return -1;
 	}
 
-	data->fc = getFlowControlFromMemory(data->hGameMemory);
+	data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
 	if (data->fc == NULL)
 	{
 		_tprintf(L"Error on readFlowControlFromMemory(): (%d)!\n", GetLastError());
@@ -111,12 +118,15 @@ int _tmain(int argc, TCHAR** argv)
 	HANDLE hStdout;
 	hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
 	
-	HANDLE drawingThreadHandle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) drawingThread, (LPVOID) data, NULL, NULL);
+	HANDLE drawingThreadHandle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) drawingThread, (LPVOID) data, 0, NULL);
 	if (drawingThreadHandle == NULL)
 	{
 		_tprintf(L"Error creating drawingThread: (%d)!\n", GetLastError());
 		return -1;
 	}
+
+	//draw the board once before game start
+	drawBoardToConsole(&data->fc->gameboard);
 
 	while (data->fc->gameboard.isGameRunning)
 	{
@@ -124,20 +134,31 @@ int _tmain(int argc, TCHAR** argv)
 		TCHAR cmd[CMD_MAX_LENGTH];
 		_fgetts(cmd, CMD_MAX_LENGTH, stdin);
 
-		_tprintf(L"MainThread: I'm waiting to control the mutex\n");
+		int str_size = _tcsclen(cmd) - 1;
+		if (cmd[str_size] == '\n')
+			cmd[str_size] = '\0';
+
 		if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
 		{
-			_tprintf(L"MainThread: I'm controlling the mutex\n");
+			UnmapViewOfFile(data->fc);
+			data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
+			if (data->fc == NULL)
+			{
+				_tprintf(L"Error on readFlowControlFromMemory(): (%d)!\n", GetLastError());
+				ReleaseMutex(data->hMutex);
+				return -1;
+			}
+
 			int in = data->fc->buffer.in;
 			memcpy(data->fc->buffer.cmdBuffer[in], cmd, CMD_MAX_LENGTH);
 			in = (in + 1) % DIM;
 			data->fc->buffer.in = in;
 
 			SetEvent(data->hCommandEvent);
-			_tprintf(L"MainThread: I've SET the CommandEvent\n");
 		}
 		ReleaseMutex(data->hMutex);
-		_tprintf(L"MainThread: I've released the mutex\n");
+
+		if (_tcscmp(cmd, L"exit") == 0) break;
 	}
 
 	WaitForSingleObject(drawingThreadHandle, INFINITE);

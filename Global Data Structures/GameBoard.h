@@ -34,6 +34,7 @@ typedef struct
 	BOOL isStart;	//Make sure that: 1. Both are FALSE
 	BOOL isEnd;		//2. Only one is TRUE
 	BOOL isEnabled;
+	BOOL isWall;
 
 	BOOL isFlooded;	//Has water reached this pos?
 

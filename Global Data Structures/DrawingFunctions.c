@@ -96,6 +96,7 @@ void drawBoardToConsole(GameBoard* gb)
 	//Draw board
 	for (int y = 0; y < gb->y; y++)
 	{
+		//Draw left spacing
 		if (gb->board[y][0].isStart == TRUE)
 		{
 			if (gb->board[y][0].side == R)
@@ -109,10 +110,20 @@ void drawBoardToConsole(GameBoard* gb)
 		else
 			_tprintf(L" ");
 
+		//Draw left border
 		_tprintf(L"|");
 
+		//Draw the inner board
 		for (int x = 0; x < gb->x; x++)
 		{
+			//need to make it separate and draw last
+			if (gb->board[y][x].isWall == TRUE)
+			{
+				_tprintf(L"\u2593");
+				_tprintf(L"|");
+				continue;
+			}
+
 			if (gb->board[y][x].isFlooded == FALSE)
 			{
 				switch (gb->board[y][x].piece)
@@ -141,7 +152,7 @@ void drawBoardToConsole(GameBoard* gb)
 				default: break;
 				}
 			}
-			if (gb->board[y][x].isFlooded == TRUE)
+			else if (gb->board[y][x].isFlooded == TRUE)
 			{
 				switch (gb->board[y][x].piece)
 				{
@@ -176,6 +187,7 @@ void drawBoardToConsole(GameBoard* gb)
 		//this gives a very valid warning,
 		//but the monitor has no way to enforce
 		//the limits.
+		//Draw the right border.
 		if (gb->board[y][gb->x - 1].isStart == TRUE)
 		{
 			if (gb->board[y][gb->x - 1].side == R)

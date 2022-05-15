@@ -51,4 +51,6 @@ void copyFlowControltoMemory(FlowControl* fc, HANDLE gameMemoryHandle)
 	}
 
 	memcpy((void*) mem_fc, (void*) fc, sizeof(FlowControl));
+
+	UnmapViewOfFile(mem_fc);
 }
