@@ -132,7 +132,7 @@ int _tmain(int argc, TCHAR** argv)
 	{
 		_tprintf(L"Command to send to the server: ");
 		TCHAR cmd[CMD_MAX_LENGTH];
-		_fgetts(cmd, CMD_MAX_LENGTH, stdin);
+		_fgetts(cmd, sizeof(TCHAR) * CMD_MAX_LENGTH, stdin);
 
 		int str_size = _tcsclen(cmd) - 1;
 		if (cmd[str_size] == '\n')
@@ -150,13 +150,14 @@ int _tmain(int argc, TCHAR** argv)
 			}
 
 			int in = data->fc->buffer.in;
-			memcpy(data->fc->buffer.cmdBuffer[in], cmd, CMD_MAX_LENGTH);
+			memcpy(data->fc->buffer.cmdBuffer[in], cmd, sizeof(TCHAR) * CMD_MAX_LENGTH);
 			in = (in + 1) % DIM;
 			data->fc->buffer.in = in;
 
 			SetEvent(data->hCommandEvent);
 		}
 		ReleaseMutex(data->hMutex);
+		ClearConsoleScreen(hStdout);
 
 		if (_tcscmp(cmd, L"exit") == 0) break;
 	}

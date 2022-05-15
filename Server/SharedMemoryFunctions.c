@@ -3,11 +3,11 @@
 #include "SharedMemoryFunctions.h"
 #include "Functions.h"
 
-void initSharedMemory(Data* data, HANDLE* gameMemoryHandle)
+void initSharedMemory(Data* data)
 {
-	*gameMemoryHandle = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(FlowControl), memoryName);
+	data->hGameMemory = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(FlowControl), memoryName);
 
-	if (gameMemoryHandle == NULL)
+	if (data->hGameMemory == NULL)
 	{
 		_tprintf(TEXT("Could not create the game shared memory blocks: (%d).\n"), GetLastError());
 		return;
@@ -47,7 +47,7 @@ void copyFlowControltoMemory(FlowControl* fc, HANDLE gameMemoryHandle)
 	if (mem_fc == NULL)
 	{
 		_tprintf(L"Error mapping memory: (%d)!\n", GetLastError());
-		return -1;
+		return;
 	}
 
 	memcpy((void*) mem_fc, (void*) fc, sizeof(FlowControl));

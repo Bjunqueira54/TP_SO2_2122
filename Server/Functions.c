@@ -11,6 +11,14 @@ typedef struct
 {
 	Data* data;
 
+	PieceType pipe_type;
+	int pipe_y;
+	int pipe_x;
+} PipeInfo;
+typedef struct
+{
+	Data* data;
+
 	DWORD stopWaterMili;
 } WaterStop;
 typedef struct
@@ -18,21 +26,49 @@ typedef struct
 	Data* data;
 
 	int y, x;
-}WallInfo;
+} WallInfo;
 
+
+DWORD WINAPI addPipeThread(LPVOID param)
+{
+	PipeInfo* pi = (PipeInfo*)param;
+	if (pi == NULL) return -1;
+
+	Data* data = pi->data;
+
+	if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+	{
+		UnmapViewOfFile(data->fc);
+		data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
+		if (data->fc == NULL)
+		{
+			ReleaseMutex(data->hMutex);
+			return -1;
+		}
+		if (data->fc->gameboard.board[pi->pipe_y][pi->pipe_x].isEnabled == TRUE && data->fc->gameboard.board[pi->pipe_y][pi->pipe_x].isWall == FALSE)
+			data->fc->gameboard.board[pi->pipe_y][pi->pipe_x].piece = pi->pipe_type;
+
+	}
+	ReleaseMutex(data->hMutex);
+	SetEvent(data->hBoardEvent);
+
+	return 0;
+}
 DWORD WINAPI stopWaterThread(LPVOID param)
 {
 	WaterStop* ws = (WaterStop*)param;
 	if (ws == NULL) return -1;
 
 	Data* data = ws->data;
-
-	UnmapViewOfFile(data->fc);
-	data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
-	if (data->fc == NULL) return -1;
-
 	if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+	{
+		UnmapViewOfFile(data->fc);
+		data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
+		if (data->fc == NULL) return -1;
+
+
 		data->fc->gameboard.isWaterRunning = FALSE;
+	}
 	ReleaseMutex(data->hMutex);
 
 	Sleep(ws->stopWaterMili);
@@ -64,20 +100,24 @@ DWORD WINAPI placeWallThread(LPVOID param)
 		data->fc->gameboard.board[wi->y][wi->x].isWall = TRUE;
 	}
 	ReleaseMutex(data->hMutex);
+	SetEvent(data->hBoardEvent);
 
 	return 0;
 }
+
 DWORD WINAPI waterControlThread(LPVOID param)
 {
 	Data* data = (Data*) param;
 
-	WaitForSingleObject(data->hMutex, INFINITE);
-	UnmapViewOfFile(data->fc);
-	data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
-	if (data->fc == NULL)
+	if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
 	{
-		ReleaseMutex(data->hMutex);
-		return -1;
+		UnmapViewOfFile(data->fc);
+		data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
+		if (data->fc == NULL)
+		{
+			ReleaseMutex(data->hMutex);
+			return -1;
+		}
 	}
 	ReleaseMutex(data->hMutex);
 
@@ -86,17 +126,18 @@ DWORD WINAPI waterControlThread(LPVOID param)
 	Side v_water_dir = NO;
 
 	//Find water start location
-	WaitForSingleObject(data->hMutex, INFINITE);
-	for (int y = 0; y < data->fc->gameboard.y; y++)
+	if(WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
 	{
-		for (int x = 0; x < data->fc->gameboard.x; x++)
+		for (int y = 0; y < data->fc->gameboard.y; y++)
 		{
-			if (data->fc->gameboard.board[y][x].isStart)
+			for (int x = 0; x < data->fc->gameboard.x; x++)
 			{
-				v_current_water_posx = x;
-				v_current_water_posy = y;
-				switch (data->fc->gameboard.board[y][x].side)
+				if (data->fc->gameboard.board[y][x].isStart)
 				{
+					v_current_water_posx = x;
+					v_current_water_posy = y;
+					switch (data->fc->gameboard.board[y][x].side)
+					{
 					case S:
 						v_water_dir = N;
 						break;
@@ -112,12 +153,13 @@ DWORD WINAPI waterControlThread(LPVOID param)
 					default:
 						v_water_dir = NO;
 						break;
+					}
 				}
-			}
 
+				if (v_water_dir != NO) break;
+			}
 			if (v_water_dir != NO) break;
 		}
-		if (v_water_dir != NO) break;
 	}
 	ReleaseMutex(data->hMutex);
 
@@ -127,9 +169,8 @@ DWORD WINAPI waterControlThread(LPVOID param)
 		return -1;
 	}
 
-	while (data->fc->gameboard.isGameRunning)
+	while (TRUE)
 	{
-		Sleep(1000);
 		if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
 		{
 			UnmapViewOfFile(data->fc);
@@ -140,6 +181,11 @@ DWORD WINAPI waterControlThread(LPVOID param)
 				break;	//I mean, it's gonna crash anyway
 			}
 
+			if (!data->fc->gameboard.isGameRunning)
+			{
+				ReleaseMutex(data->hMutex);
+				return 0;
+			}
 			if (!data->fc->gameboard.isWaterRunning)
 			{
 				ReleaseMutex(data->hMutex);
@@ -152,11 +198,11 @@ DWORD WINAPI waterControlThread(LPVOID param)
 
 			//Yes, I'm nuts. How could you tell?
 			if ((v_water_dir == L &&		(v_current_cell_piece == V		||
-											v_current_cell_piece == UR		||
-											v_current_cell_piece == DR))	||
-					(v_water_dir == R &&	(v_current_cell_piece == V		||
 											v_current_cell_piece == UL		||
 											v_current_cell_piece == DL))	||
+					(v_water_dir == R &&	(v_current_cell_piece == V		||
+											v_current_cell_piece == UR		||
+											v_current_cell_piece == DR))	||
 					(v_water_dir == S &&	(v_current_cell_piece == H		||
 											v_current_cell_piece == DL		||
 											v_current_cell_piece == DR))	||
@@ -165,28 +211,42 @@ DWORD WINAPI waterControlThread(LPVOID param)
 											v_current_cell_piece == UR))	||
 					(v_current_cell_piece == E))
 			{
-				//data->fc->gameboard.isGameRunning = FALSE;
+				data->fc->gameboard.isGameRunning = FALSE;
 				_tprintf(L"You Lost!\n");
+				ReleaseMutex(data->hMutex);
+				SetEvent(data->hBoardEvent);
+				return 0;
 			}
-			else if (	(v_water_dir == L && v_current_cell_piece == DL) ||
-						(v_water_dir == R && v_current_cell_piece == DR))
+			else if (	(v_water_dir == L && v_current_cell_piece == DR) ||
+						(v_water_dir == R && v_current_cell_piece == DL))
 			{
 				v_water_dir = S;
 			}
-			else if (	(v_water_dir == L && v_current_cell_piece == UL) ||
-						(v_water_dir == R && v_current_cell_piece == UR))
+			else if (	(v_water_dir == L && v_current_cell_piece == UR) ||
+						(v_water_dir == R && v_current_cell_piece == UL))
 			{
 				v_water_dir = N;
 			}
-			else if (	(v_water_dir == N && v_current_cell_piece == UL) ||
-						(v_water_dir == S && v_current_cell_piece == DL))
+			else if (	(v_water_dir == N && v_current_cell_piece == DL) ||
+						(v_water_dir == S && v_current_cell_piece == UL))
 			{
 				v_water_dir = L;
 			}
-			else if (	(v_water_dir == N && v_current_cell_piece == UR) ||
-						(v_water_dir == S && v_current_cell_piece == DR))
+			else if (	(v_water_dir == N && v_current_cell_piece == DR) ||
+						(v_water_dir == S && v_current_cell_piece == UR))
 			{
 				v_water_dir = R;
+			}
+
+			//check victory
+			if (data->fc->gameboard.board[v_current_water_posy][v_current_water_posx].isEnd == TRUE	&&
+				v_water_dir == data->fc->gameboard.board[v_current_water_posy][v_current_water_posx].side)
+			{
+				data->fc->gameboard.isGameRunning = FALSE;
+				_tprintf(L"You Win!\n");
+				SetEvent(data->hBoardEvent);
+				ReleaseMutex(data->hMutex);
+				return 0;
 			}
 		}
 		SetEvent(data->hBoardEvent);
@@ -211,9 +271,24 @@ DWORD WINAPI waterControlThread(LPVOID param)
 		default:
 			break;
 		}
+
+		Sleep(1000);
 	}
 
 	return 0;
+}
+
+PieceType getPieceTypeByString(TCHAR* str)
+{
+	if (str == NULL) return E;
+
+	if (_tcscmp(str, L"H") == 0) return H;
+	else if (_tcscmp(str, L"V") == 0) return V;
+	else if (_tcscmp(str, L"UL") == 0) return UL;
+	else if (_tcscmp(str, L"UR") == 0) return UR;
+	else if (_tcscmp(str, L"DL") == 0) return DL;
+	else if (_tcscmp(str, L"DR") == 0) return DR;
+	else return E;
 }
 
 void cmdProcessing(Data* data, TCHAR* cmd)
@@ -225,9 +300,9 @@ void cmdProcessing(Data* data, TCHAR* cmd)
 		WaterStop* ws = malloc(sizeof(WaterStop));
 		if (ws == NULL) return;
 		ws->data = data;
-		ws->stopWaterMili = atoi(parsedCmd[1]) * 1000;	//it's in miliseconds
+		ws->stopWaterMili = _ttoi(parsedCmd[1]) * 1000;	//it's in miliseconds
 
-		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)stopWaterThread, (LPVOID)ws, NULL, NULL);
+		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)stopWaterThread, (LPVOID)ws, 0, NULL);
 	}
 	else if (_tcscmp(parsedCmd[0], L"exit") == 0)
 	{
@@ -249,10 +324,10 @@ void cmdProcessing(Data* data, TCHAR* cmd)
 		WallInfo* wi = malloc(sizeof(WallInfo));
 		if (wi == NULL) return;
 		wi->data = data;
-		wi->y = atoi(parsedCmd[1]);
-		wi->x = atoi(parsedCmd[2]);
+		wi->y = _ttoi(parsedCmd[1]) - 1;
+		wi->x = _ttoi(parsedCmd[2]) - 1;
 
-		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)placeWallThread, (LPVOID)wi, NULL, NULL);
+		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)placeWallThread, (LPVOID)wi, 0, NULL);
 	}
 	else if (_tcscmp(parsedCmd[0], L"startwater") == 0)
 	{
@@ -269,6 +344,22 @@ void cmdProcessing(Data* data, TCHAR* cmd)
 		}
 		ReleaseMutex(data->hMutex);
 	}
+	else if (_tcscmp(parsedCmd[0], L"pipe") == 0)
+	{
+		PieceType pipe_type = getPieceTypeByString(parsedCmd[1]);
+		int pipe_y = _ttoi(parsedCmd[2]) - 1;
+		int pipe_x = _ttoi(parsedCmd[3]) - 1;
+
+		PipeInfo* pi = malloc(sizeof(PipeInfo));
+		if (pi == NULL) return;
+
+		pi->data = data;
+		pi->pipe_type = pipe_type;
+		pi->pipe_y = pipe_y;
+		pi->pipe_x = pipe_x;
+
+		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)addPipeThread, (LPVOID)pi, 0, NULL);
+	}
 }
 
 DWORD WINAPI cmdControlThread(LPVOID param)
@@ -280,31 +371,43 @@ DWORD WINAPI cmdControlThread(LPVOID param)
 		return -1;
 	}
 
-	UnmapViewOfFile(data->fc);
-	data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
-	if (data->fc == NULL)
+	if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
 	{
-		_tprintf(L"Where's my flow control?\n");
-		return -1;
+		UnmapViewOfFile(data->fc);
+		data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
+		if (data->fc == NULL)
+		{
+			_tprintf(L"Where's my flow control?\n");
+			ReleaseMutex(data->hMutex);
+			return -1;
+		}
 	}
 
-	while (data->fc->gameboard.isGameRunning)
+	while (TRUE)
 	{
-		if (WaitForSingleObject(data->hCommandEvent, INFINITE) == WAIT_OBJECT_0)	//new event, what could this mean? :o
+		if (WaitForSingleObject(data->hCommandEvent, INFINITE) == WAIT_OBJECT_0)	//New event OwO
 		{
-			if (data->fc->gameboard.isGameRunning == FALSE) break;
-
 			if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)	//Take control of the mutex
 			{
-
-				UnmapViewOfFile(data->fc);
+				if(data->fc != NULL) UnmapViewOfFile(data->fc);
 				data->fc = (FlowControl*) MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));	//Update shared memory mapping
-				if (data->fc == NULL) continue;
+				if (data->fc == NULL)
+				{
+					ReleaseMutex(data->hMutex);
+					return -1;
+				}
+
+				if (!data->fc->gameboard.isGameRunning)
+				{
+					ReleaseMutex(data->hMutex);
+					return 0;
+				}
 
 				int out = data->fc->buffer.out;
 				_tprintf(L"Received from monitor: %s\n", data->fc->buffer.cmdBuffer[out]);
 				TCHAR cmd[CMD_MAX_LENGTH] = L"";
-				_tcscpy_s(cmd, CMD_MAX_LENGTH, data->fc->buffer.cmdBuffer[out]);
+				//_tcscpy_s(cmd, sizeof(TCHAR) * CMD_MAX_LENGTH, data->fc->buffer.cmdBuffer[out]);
+				memcpy(cmd, data->fc->buffer.cmdBuffer[out], sizeof(TCHAR) * CMD_MAX_LENGTH);
 
 				cmdProcessing(data, cmd);
 
@@ -375,7 +478,7 @@ GameBoard* initGameboard()
 
 	gb->board[0][0].isEnd = TRUE;
 	gb->board[0][0].isStart = FALSE;	//Redundant, but better safe than sorry.
-	gb->board[0][0].side = L;
+	gb->board[0][0].side = L;			//Water needs to leave from this side.
 
 	return gb;
 }

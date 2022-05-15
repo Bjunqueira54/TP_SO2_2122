@@ -5,7 +5,7 @@
 
 #include "..\Global Data Structures\GameBoard.h"
 
-void initSharedMemory(Data*, HANDLE*);
+void initSharedMemory(Data*);
 void copyFlowControltoMemory(FlowControl*, HANDLE);
 void UnmapSharedMemory(HANDLE);
 //DWORD WINAPI readPagedMemory();
