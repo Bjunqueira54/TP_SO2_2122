@@ -382,6 +382,7 @@ DWORD WINAPI cmdControlThread(LPVOID param)
 			return -1;
 		}
 	}
+	ReleaseMutex(data->hMutex);
 
 	while (TRUE)
 	{
@@ -427,7 +428,7 @@ DWORD WINAPI cmdControlThread(LPVOID param)
 GameBoard* initGameboard()
 {
 	///////////////////////////
-	///Fecth Registry Values///
+	///Fetch Registry Values///
 	///////////////////////////
 
 
