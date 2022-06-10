@@ -13,7 +13,10 @@ void initSharedMemory(Data* data)
 		return;
 	}
 
-	data->hMutex = CreateMutex(NULL, FALSE, mutexName);
+	data->hMutex = CreateMutex(NULL, FALSE, mutexName); //
+	//data->sem_mutex = CreateSemaphore(NULL, 1, 1, L"Semaforo_Mutex");
+	//data->sem_itens = CreateSemaphore(NULL, 1, 1, L"Semaforo_1");
+	//data->sem_empty = CreateSemaphore(NULL, 1, 1, L"Semaforo_2");
 
 	if (data->hMutex == NULL)
 		_tprintf(TEXT("Could not create the mutex: (%d).\n"), GetLastError());

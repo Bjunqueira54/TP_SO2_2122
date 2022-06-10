@@ -387,20 +387,20 @@ DWORD WINAPI cmdControlThread(LPVOID param)
 	while (TRUE)
 	{
 		if (WaitForSingleObject(data->hCommandEvent, INFINITE) == WAIT_OBJECT_0)	//New event OwO
-		{
-			if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)	//Take control of the mutex
+		{ //if (WaitForSingleObject(sem_itens, INFINITE)== WAIT_OBJECT_0) {
+			if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)//Semaforo"mutex" if (WaitForSingleObject(data->sem_mutex, INFINITE) == WAIT_OBJECT_0)
 			{
 				if(data->fc != NULL) UnmapViewOfFile(data->fc);
-				data->fc = (FlowControl*) MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));	//Update shared memory mapping
+				data->fc = (FlowControl*) MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));//Update shared memory mapping
 				if (data->fc == NULL)
 				{
-					ReleaseMutex(data->hMutex);
+					ReleaseMutex(data->hMutex); //ReleaseSemaphore(sem_mutex, 1, NULL); passas a usar semaforo :s
 					return -1;
 				}
 
 				if (!data->fc->gameboard.isGameRunning)
 				{
-					ReleaseMutex(data->hMutex);
+					ReleaseMutex(data->hMutex); //ReleaseSemaphore(sem_mutex, 1, NULL);passas a usar semaforo :s
 					return 0;
 				}
 
@@ -418,7 +418,9 @@ DWORD WINAPI cmdControlThread(LPVOID param)
 
 				ResetEvent(data->hCommandEvent);
 			}
-			ReleaseMutex(data->hMutex);
+			ReleaseMutex(data->hMutex); //ReleaseSemaphore(data->sem_mutex, 1, NULL);}
+			//ReleaseSemaphore(data->sem_empty, 1, NULL);
+
 		}
 	}
 

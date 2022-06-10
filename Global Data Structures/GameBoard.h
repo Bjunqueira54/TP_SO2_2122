@@ -73,7 +73,10 @@ typedef struct
 
 	HANDLE hGameMemory;
 
-	HANDLE hMutex;
+	HANDLE hMutex; 
+	HANDLE sem_mutex; // semaforo "mutex" previne o acesso simultâneo a in(exclusao mutua do buffer circular)
+	HANDLE sem_items; // semaforo 1  Para contabilizar o número de itens disponíveis  
+	HANDLE sem_empty; //semaforo 2 Para contabilizar o número de elementos livres no buffer
 
 	HANDLE hBoardEvent;
 	HANDLE hCommandEvent;

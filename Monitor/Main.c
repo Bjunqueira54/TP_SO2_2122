@@ -138,14 +138,14 @@ int _tmain(int argc, TCHAR** argv)
 		if (cmd[str_size] == '\n')
 			cmd[str_size] = '\0';
 
-		if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+		if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0) //if(WaitForSingleObject(sem_vazios, INFINITE) == WAIT_OBJECT_0){
 		{
 			UnmapViewOfFile(data->fc);
 			data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
 			if (data->fc == NULL)
 			{
 				_tprintf(L"Error on readFlowControlFromMemory(): (%d)!\n", GetLastError());
-				ReleaseMutex(data->hMutex);
+				ReleaseMutex(data->hMutex);  //ReleaseSemaphore(sem_items, 1, NULL); sorry
 				return -1;
 			}
 
@@ -156,7 +156,7 @@ int _tmain(int argc, TCHAR** argv)
 
 			SetEvent(data->hCommandEvent);
 		}
-		ReleaseMutex(data->hMutex);
+		ReleaseMutex(data->hMutex);//ReleaseSemaphore(sem_items, 1, NULL);
 		ClearConsoleScreen(hStdout);
 
 		if (_tcscmp(cmd, L"exit") == 0) break;
