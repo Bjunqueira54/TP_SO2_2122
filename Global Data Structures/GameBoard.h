@@ -4,10 +4,11 @@
 #define CMD_MAX_LENGTH 25
 
 extern TCHAR memoryName[];
-extern TCHAR mutexName[];
 extern TCHAR boardEventName[];
 extern TCHAR cmdEventName[];
-
+extern TCHAR sMutexName[];
+extern TCHAR sItemsName[];
+extern TCHAR sEmptyName[];
 
 typedef enum
 {
@@ -73,10 +74,10 @@ typedef struct
 
 	HANDLE hGameMemory;
 
-	HANDLE hMutex; 
-	HANDLE sem_mutex; // semaforo "mutex" previne o acesso simultâneo a in(exclusao mutua do buffer circular)
-	HANDLE sem_items; // semaforo 1  Para contabilizar o número de itens disponíveis  
-	HANDLE sem_empty; //semaforo 2 Para contabilizar o número de elementos livres no buffer
+	//HANDLE hMutex; 
+	HANDLE sMutex; // semaforo "mutex" previne o acesso simultaneo a in(exclusao mutua do buffer circular)
+	HANDLE sItems; // semaforo 1 Para contabilizar o numero de itens disponiveis  
+	HANDLE sEmpty; // semaforo 2 Para contabilizar o numero de elementos livres no buffer
 
 	HANDLE hBoardEvent;
 	HANDLE hCommandEvent;

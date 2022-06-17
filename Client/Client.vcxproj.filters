@@ -45,5 +45,29 @@
     <Image Include="Client.ico">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="GridEmpty.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GridVPipe.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GridHPipe.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="bitmap4.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GridDLPipe.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GridDRPipe.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GridULPipe.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GridURPipe.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

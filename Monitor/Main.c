@@ -7,26 +7,28 @@
 #include "..\Global Data Structures\GameBoard.h"
 #include "..\Global Data Structures\DrawingFunctions.h"
 
-TCHAR memoryName[] = TEXT("GameMemory");
-TCHAR mutexName[] = TEXT("MutexMemory");
-TCHAR boardEventName[] = TEXT("BoardEvent");
-TCHAR cmdEventName[] = TEXT("CommandEvent");
+TCHAR memoryName[]		= L"GameMemory";
+TCHAR boardEventName[]	= L"BoardEvent";
+TCHAR cmdEventName[]	= L"CommandEvent";
+TCHAR sMutexName[]		= L"Semaforo_Mutex";
+TCHAR sItemsName[]		= L"Semaforo_1";
+TCHAR sEmptyName[]		= L"Semaforo_2";
 
 DWORD WINAPI drawingThread(LPVOID param)
 {
 	GameBoard* gb;
 	Data* data = (Data*)param;
-	if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+	if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 	{
 		UnmapViewOfFile(data->fc);
 		data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
 		if (data->fc == NULL)
 		{
-			ReleaseMutex(data->hMutex);
+			ReleaseSemaphore(data->sMutex, 1, NULL);
 			return -1;
 		}
 	}
-	ReleaseMutex(data->hMutex);
+	ReleaseSemaphore(data->sMutex, 1, NULL);
 
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
@@ -47,13 +49,13 @@ DWORD WINAPI drawingThread(LPVOID param)
 			COORD currentScreenCoord = csbi.dwCursorPosition;
 			OverwriteConsoleScreen(hConsole);
 
-			if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+			if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 			{
 				UnmapViewOfFile(data->fc);
 				data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
 				if (data->fc == NULL)
 				{
-					ReleaseMutex(data->hMutex);
+					ReleaseSemaphore(data->sMutex, 1, NULL);
 					return -1;
 				}
 				gb = malloc(sizeof(GameBoard));
@@ -68,8 +70,8 @@ DWORD WINAPI drawingThread(LPVOID param)
 			}
 			else continue;
 			ResetEvent(data->hBoardEvent);
-			ReleaseMutex(data->hMutex);
-			drawBoardToConsole(gb);
+			ReleaseSemaphore(data->sMutex, 1, NULL);
+			drawBoardToConsole(*gb);
 			free(gb);
 			SetConsoleCursorPosition(hConsole, currentScreenCoord);
 		}
@@ -98,6 +100,7 @@ int _tmain(int argc, TCHAR** argv)
 		return -1;
 	}
 
+	//First read requires no mutex control
 	data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
 	if (data->fc == NULL)
 	{
@@ -107,9 +110,11 @@ int _tmain(int argc, TCHAR** argv)
 
 	data->hBoardEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, boardEventName);
 	data->hCommandEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, cmdEventName);
-	data->hMutex = OpenMutex(MUTEX_ALL_ACCESS, FALSE, mutexName);
+	data->sMutex = OpenSemaphore(SEMAPHORE_ALL_ACCESS, FALSE, sMutexName);
+	data->sItems = OpenSemaphore(SEMAPHORE_ALL_ACCESS, FALSE, sItemsName);
+	data->sEmpty = OpenSemaphore(SEMAPHORE_ALL_ACCESS, FALSE, sEmptyName);
 
-	if (data->hBoardEvent == NULL || data->hCommandEvent == NULL || data->hMutex == NULL)
+	if (data->hBoardEvent == NULL || data->hCommandEvent == NULL || data->sMutex == NULL || data->sItems == NULL || data->sEmpty == NULL)
 	{
 		_tprintf(L"Error creating handles: (%d)!\n", GetLastError());
 		return -1;
@@ -126,7 +131,12 @@ int _tmain(int argc, TCHAR** argv)
 	}
 
 	//draw the board once before game start
-	drawBoardToConsole(&data->fc->gameboard);
+	if (&data->fc->gameboard == NULL)
+	{
+		_tprintf(L"No gameboard present?\n");
+		return -1;
+	}
+	drawBoardToConsole(data->fc->gameboard);
 
 	while (data->fc->gameboard.isGameRunning)
 	{
@@ -138,16 +148,20 @@ int _tmain(int argc, TCHAR** argv)
 		if (cmd[str_size] == '\n')
 			cmd[str_size] = '\0';
 
-		if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0) //if(WaitForSingleObject(sem_vazios, INFINITE) == WAIT_OBJECT_0){
+		if(WaitForSingleObject(data->sEmpty, INFINITE) == WAIT_OBJECT_0)
 		{
-			UnmapViewOfFile(data->fc);
-			data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
-			if (data->fc == NULL)
+			if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 			{
-				_tprintf(L"Error on readFlowControlFromMemory(): (%d)!\n", GetLastError());
-				ReleaseMutex(data->hMutex);  //ReleaseSemaphore(sem_items, 1, NULL); sorry
-				return -1;
+				UnmapViewOfFile(data->fc);
+				data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
+				if (data->fc == NULL)
+				{
+					_tprintf(L"Error on readFlowControlFromMemory(): (%d)!\n", GetLastError());
+					ReleaseSemaphore(data->sMutex, 1, NULL);
+					return -1;
+				}
 			}
+			ReleaseSemaphore(data->sMutex, 1, NULL);
 
 			int in = data->fc->buffer.in;
 			memcpy(data->fc->buffer.cmdBuffer[in], cmd, sizeof(TCHAR) * CMD_MAX_LENGTH);
@@ -156,7 +170,7 @@ int _tmain(int argc, TCHAR** argv)
 
 			SetEvent(data->hCommandEvent);
 		}
-		ReleaseMutex(data->hMutex);//ReleaseSemaphore(sem_items, 1, NULL);
+		ReleaseSemaphore(data->sItems, 1, NULL);
 		ClearConsoleScreen(hStdout);
 
 		if (_tcscmp(cmd, L"exit") == 0) break;

@@ -60,22 +60,23 @@ void OverwriteConsoleScreen(HANDLE hConsole)
 	SetConsoleCursorPosition(hConsole, coordScreen);
 }
 
-void drawBoardToConsole(GameBoard* gb)
+void drawBoardToConsole(GameBoard gb)
 {
+	//GameBoard gb;
 	_tprintf(L" ");
 	_tprintf(L" ");
 	//Draw water start if it's on the top border
-	for (int i = 0; i < gb->x; i++)
+	for (int i = 0; i < gb.x; i++)
 	{
-		if (gb->board[0][i].isStart == TRUE)
+		if (gb.board[0][i].isStart == TRUE)
 		{
-			if (gb->board[0][i].side == N)
+			if (gb.board[0][i].side == N)
 				_tprintf(L"\u2193");
 		}
 
-		else if (gb->board[0][i].isEnd == TRUE)
+		else if (gb.board[0][i].isEnd == TRUE)
 		{
-			if (gb->board[0][i].side == N)
+			if (gb.board[0][i].side == N)
 				_tprintf(L"\u2191");
 		}
 
@@ -89,22 +90,22 @@ void drawBoardToConsole(GameBoard* gb)
 	_tprintf(L" ");
 	_tprintf(L" ");
 	//Draw top border
-	for (int i = 0; i < gb->x; i++)
+	for (int i = 0; i < gb.x; i++)
 		_tprintf(L"_ ");
 	_tprintf(L"\n");
 
 	//Draw board
-	for (int y = 0; y < gb->y; y++)
+	for (int y = 0; y < gb.y; y++)
 	{
 		//Draw left spacing
-		if (gb->board[y][0].isStart == TRUE)
+		if (gb.board[y][0].isStart == TRUE)
 		{
-			if (gb->board[y][0].side == R)
+			if (gb.board[y][0].side == R)
 				_tprintf(L"\u2192");
 		}
-		else if (gb->board[y][0].isEnd == TRUE)
+		else if (gb.board[y][0].isEnd == TRUE)
 		{
-			if (gb->board[y][0].side == L)
+			if (gb.board[y][0].side == L)
 				_tprintf(L"\u2190");
 		}
 		else
@@ -114,19 +115,19 @@ void drawBoardToConsole(GameBoard* gb)
 		_tprintf(L"|");
 
 		//Draw the inner board
-		for (int x = 0; x < gb->x; x++)
+		for (int x = 0; x < gb.x; x++)
 		{
 			//need to make it separate and draw last
-			if (gb->board[y][x].isWall == TRUE)
+			if (gb.board[y][x].isWall == TRUE)
 			{
 				_tprintf(L"\u2593");
 				_tprintf(L"|");
 				continue;
 			}
 
-			if (gb->board[y][x].isFlooded == FALSE)
+			if (gb.board[y][x].isFlooded == FALSE)
 			{
-				switch (gb->board[y][x].piece)
+				switch (gb.board[y][x].piece)
 				{
 				case E:
 					_tprintf(L"_");
@@ -152,9 +153,9 @@ void drawBoardToConsole(GameBoard* gb)
 				default: break;
 				}
 			}
-			else if (gb->board[y][x].isFlooded == TRUE)
+			else if (gb.board[y][x].isFlooded == TRUE)
 			{
-				switch (gb->board[y][x].piece)
+				switch (gb.board[y][x].piece)
 				{
 				case E:
 					_tprintf(L"x");
@@ -188,14 +189,14 @@ void drawBoardToConsole(GameBoard* gb)
 		//but the monitor has no way to enforce
 		//the limits.
 		//Draw the right border.
-		if (gb->board[y][gb->x - 1].isStart == TRUE)
+		if (gb.board[y][gb.x - 1].isStart == TRUE)
 		{
-			if (gb->board[y][gb->x - 1].side == R)
+			if (gb.board[y][gb.x - 1].side == R)
 				_tprintf(L"\u2190");
 		}
-		else if (gb->board[y][gb->x - 1].isEnd == TRUE)
+		else if (gb.board[y][gb.x - 1].isEnd == TRUE)
 		{
-			if (gb->board[y][gb->x - 1].side == R)
+			if (gb.board[y][gb.x - 1].side == R)
 				_tprintf(L"\u2192");
 		}
 		else
@@ -205,16 +206,16 @@ void drawBoardToConsole(GameBoard* gb)
 
 	_tprintf(L" ");
 	_tprintf(L" ");
-	for (int i = 0; i < gb->x; i++)
+	for (int i = 0; i < gb.x; i++)
 	{
-		if (gb->board[gb->y - 1][i].isStart == TRUE)
+		if (gb.board[gb.y - 1][i].isStart == TRUE)
 		{
-			if (gb->board[gb->y - 1][i].side == S)
+			if (gb.board[gb.y - 1][i].side == S)
 				_tprintf(L"\u2191");
 		}
-		else if (gb->board[gb->y - 1][i].isEnd == TRUE)
+		else if (gb.board[gb.y - 1][i].isEnd == TRUE)
 		{
-			if (gb->board[gb->y - 1][i].side == S)
+			if (gb.board[gb.y - 1][i].side == S)
 				_tprintf(L"\u2193");
 		}
 		else

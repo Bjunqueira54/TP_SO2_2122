@@ -13,15 +13,14 @@ void initSharedMemory(Data* data)
 		return;
 	}
 
-	data->hMutex = CreateMutex(NULL, FALSE, mutexName); //
-	//data->sem_mutex = CreateSemaphore(NULL, 1, 1, L"Semaforo_Mutex");
-	//data->sem_itens = CreateSemaphore(NULL, 1, 1, L"Semaforo_1");
-	//data->sem_empty = CreateSemaphore(NULL, 1, 1, L"Semaforo_2");
+	data->sMutex = CreateSemaphore(NULL, 1, 1, sMutexName);
+	data->sItems = CreateSemaphore(NULL, 1, 1, sItemsName);
+	data->sEmpty = CreateSemaphore(NULL, 1, 1, sEmptyName);
 
-	if (data->hMutex == NULL)
-		_tprintf(TEXT("Could not create the mutex: (%d).\n"), GetLastError());
+	if (data->sMutex == NULL || data->sItems == NULL || data->sEmpty == NULL)
+		_tprintf(L"Could not create Semaphores: (%d).\n", GetLastError());
 	else if (GetLastError() == ERROR_ALREADY_EXISTS)
-		_tprintf(TEXT("Mutex already exists\n"));
+		_tprintf(L"One (or Multiple) Semaphores already exist.\n");
 
 	data->hBoardEvent = CreateEvent(NULL, TRUE, FALSE, boardEventName);
 	if (data->hBoardEvent == NULL)

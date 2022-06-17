@@ -9,9 +9,11 @@
 #include "SharedMemoryFunctions.h"
 
 TCHAR memoryName[] = TEXT("GameMemory");
-TCHAR mutexName[] = TEXT("MutexMemory");
 TCHAR boardEventName[] = TEXT("BoardEvent");
 TCHAR cmdEventName[] = TEXT("CommandEvent");
+TCHAR sMutexName[] = L"Semaforo_Mutex";
+TCHAR sItemsName[] = L"Semaforo_1";
+TCHAR sEmptyName[] = L"Semaforo_2";
 
 //SERVER
 int _tmain(int argc, TCHAR** argv)
@@ -43,15 +45,13 @@ int _tmain(int argc, TCHAR** argv)
 	}
 
 	initSharedMemory(data);
-	//isto é só para fazer com que o InteliSense pare de
-	//moer o meu juizo á custa dos handles talvez serem 0.
-	if (data->hBoardEvent == NULL || data->hMutex == NULL || data->hCommandEvent == NULL)
+	if (data->hBoardEvent == NULL || data->sMutex == NULL || data->hCommandEvent == NULL || data->sItems == NULL || data->sEmpty == NULL)
 	{
 		_tprintf(L"What happened inside initSharedMemory? Handles are not innitialized: (%d)!\n", GetLastError());
 		return -1;
 	}
 
-	if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+	if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 	{
 		data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
 		if (data->fc == NULL)
@@ -71,7 +71,7 @@ int _tmain(int argc, TCHAR** argv)
 
 		copyFlowControltoMemory(data->fc, data->hGameMemory);
 	}
-	ReleaseMutex(data->hMutex);
+	ReleaseSemaphore(data->sMutex, 1, NULL);
 
 	HANDLE waterThreadHandle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) waterControlThread, (LPVOID) data, 0, NULL);
 	if (waterThreadHandle == NULL)
@@ -89,7 +89,7 @@ int _tmain(int argc, TCHAR** argv)
 
 	while (TRUE)
 	{
-		if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+		if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 		{
 			UnmapViewOfFile(data->fc);
 			data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
@@ -98,11 +98,11 @@ int _tmain(int argc, TCHAR** argv)
 
 			if (!data->fc->gameboard.isGameRunning)
 			{
-				ReleaseMutex(data->hMutex);
+				ReleaseSemaphore(data->sMutex, 1, NULL);
 				break;
 			}
 		}
-		ReleaseMutex(data->hMutex);
+		ReleaseSemaphore(data->sMutex, 1, NULL);
 	}
 
 	SetEvent(data->hCommandEvent);	//Trigger this event to pop cmdControlThread
@@ -115,7 +115,9 @@ int _tmain(int argc, TCHAR** argv)
 	free(data->fc);
 	CloseHandle(data->hBoardEvent);
 	CloseHandle(data->hCommandEvent);
-	CloseHandle(data->hMutex);
+	CloseHandle(data->sMutex);
+	CloseHandle(data->sItems);
+	CloseHandle(data->sEmpty);
 	free(data);
 
 	return 0;

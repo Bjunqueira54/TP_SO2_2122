@@ -36,20 +36,20 @@ DWORD WINAPI addPipeThread(LPVOID param)
 
 	Data* data = pi->data;
 
-	if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+	if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 	{
 		UnmapViewOfFile(data->fc);
 		data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
 		if (data->fc == NULL)
 		{
-			ReleaseMutex(data->hMutex);
+			ReleaseSemaphore(data->sMutex, 1, NULL);
 			return -1;
 		}
 		if (data->fc->gameboard.board[pi->pipe_y][pi->pipe_x].isEnabled == TRUE && data->fc->gameboard.board[pi->pipe_y][pi->pipe_x].isWall == FALSE)
 			data->fc->gameboard.board[pi->pipe_y][pi->pipe_x].piece = pi->pipe_type;
 
 	}
-	ReleaseMutex(data->hMutex);
+	ReleaseSemaphore(data->sMutex, 1, NULL);
 	SetEvent(data->hBoardEvent);
 
 	return 0;
@@ -60,22 +60,25 @@ DWORD WINAPI stopWaterThread(LPVOID param)
 	if (ws == NULL) return -1;
 
 	Data* data = ws->data;
-	if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+	if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 	{
 		UnmapViewOfFile(data->fc);
 		data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
-		if (data->fc == NULL) return -1;
-
+		if (data->fc == NULL)
+		{
+			ReleaseSemaphore(data->sMutex, 1, NULL);
+			return -1;
+		}
 
 		data->fc->gameboard.isWaterRunning = FALSE;
 	}
-	ReleaseMutex(data->hMutex);
+	ReleaseSemaphore(data->sMutex, 1, NULL);
 
 	Sleep(ws->stopWaterMili);
 
-	if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+	if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 		data->fc->gameboard.isWaterRunning = TRUE;
-	ReleaseMutex(data->hMutex);
+	ReleaseSemaphore(data->sMutex, 1, NULL);
 
 	return 0;
 }
@@ -87,19 +90,19 @@ DWORD WINAPI placeWallThread(LPVOID param)
 	Data* data = wi->data;
 	if (data == NULL) return -1;
 
-	if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+	if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 	{
 		UnmapViewOfFile(data->fc);
 		data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
 		if (data->fc == NULL)
 		{
-			ReleaseMutex(data->hMutex);
+			ReleaseSemaphore(data->sMutex, 1, NULL);
 			return -1;
 		}
 
 		data->fc->gameboard.board[wi->y][wi->x].isWall = TRUE;
 	}
-	ReleaseMutex(data->hMutex);
+	ReleaseSemaphore(data->sMutex, 1, NULL);
 	SetEvent(data->hBoardEvent);
 
 	return 0;
@@ -109,24 +112,24 @@ DWORD WINAPI waterControlThread(LPVOID param)
 {
 	Data* data = (Data*) param;
 
-	if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+	if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 	{
 		UnmapViewOfFile(data->fc);
 		data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
 		if (data->fc == NULL)
 		{
-			ReleaseMutex(data->hMutex);
+			ReleaseSemaphore(data->sMutex, 1, NULL);
 			return -1;
 		}
 	}
-	ReleaseMutex(data->hMutex);
+	ReleaseSemaphore(data->sMutex, 1, NULL);
 
 	int v_current_water_posx = -1;
 	int v_current_water_posy = -1;
 	Side v_water_dir = NO;
 
 	//Find water start location
-	if(WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+	if(WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 	{
 		for (int y = 0; y < data->fc->gameboard.y; y++)
 		{
@@ -161,7 +164,7 @@ DWORD WINAPI waterControlThread(LPVOID param)
 			if (v_water_dir != NO) break;
 		}
 	}
-	ReleaseMutex(data->hMutex);
+	ReleaseSemaphore(data->sMutex, 1, NULL);
 
 	if (v_current_water_posx == -1 || v_current_water_posy == -1 || v_water_dir == NO)
 	{
@@ -171,24 +174,24 @@ DWORD WINAPI waterControlThread(LPVOID param)
 
 	while (TRUE)
 	{
-		if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+		if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 		{
 			UnmapViewOfFile(data->fc);
 			data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
 			if (data->fc == NULL)
 			{
-				ReleaseMutex(data->hMutex);
+				ReleaseSemaphore(data->sMutex, 1, NULL);
 				break;	//I mean, it's gonna crash anyway
 			}
 
 			if (!data->fc->gameboard.isGameRunning)
 			{
-				ReleaseMutex(data->hMutex);
+				ReleaseSemaphore(data->sMutex, 1, NULL);
 				return 0;
 			}
 			if (!data->fc->gameboard.isWaterRunning)
 			{
-				ReleaseMutex(data->hMutex);
+				ReleaseSemaphore(data->sMutex, 1, NULL);
 				continue;
 			}
 
@@ -197,6 +200,8 @@ DWORD WINAPI waterControlThread(LPVOID param)
 			PieceType v_current_cell_piece = data->fc->gameboard.board[v_current_water_posy][v_current_water_posx].piece;
 
 			//Yes, I'm nuts. How could you tell?
+			//Corrente complexa de if-else statements
+			//condensados a um só if
 			if ((v_water_dir == L &&		(v_current_cell_piece == V		||
 											v_current_cell_piece == UL		||
 											v_current_cell_piece == DL))	||
@@ -213,7 +218,7 @@ DWORD WINAPI waterControlThread(LPVOID param)
 			{
 				data->fc->gameboard.isGameRunning = FALSE;
 				_tprintf(L"You Lost!\n");
-				ReleaseMutex(data->hMutex);
+				ReleaseSemaphore(data->sMutex, 1, NULL);
 				SetEvent(data->hBoardEvent);
 				return 0;
 			}
@@ -245,12 +250,12 @@ DWORD WINAPI waterControlThread(LPVOID param)
 				data->fc->gameboard.isGameRunning = FALSE;
 				_tprintf(L"You Win!\n");
 				SetEvent(data->hBoardEvent);
-				ReleaseMutex(data->hMutex);
+				ReleaseSemaphore(data->sMutex, 1, NULL);
 				return 0;
 			}
 		}
 		SetEvent(data->hBoardEvent);
-		ReleaseMutex(data->hMutex);
+		ReleaseSemaphore(data->sMutex, 1, NULL);
 		if (data->fc == NULL) break;	//something went wrong
 
 		//Update next water position
@@ -306,18 +311,18 @@ void cmdProcessing(Data* data, TCHAR* cmd)
 	}
 	else if (_tcscmp(parsedCmd[0], L"exit") == 0)
 	{
-		if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+		if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 		{
 			UnmapViewOfFile(data->fc);
 			data->fc = (FlowControl*) MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
 			if (data->fc == NULL)
 			{
-				ReleaseMutex(data->hMutex);
+				ReleaseSemaphore(data->sMutex, 1, NULL);
 				return;
 			}
 			data->fc->gameboard.isGameRunning = FALSE;
 		}
-		ReleaseMutex(data->hMutex);
+		ReleaseSemaphore(data->sMutex, 1, NULL);
 	}
 	else if (_tcscmp(parsedCmd[0], L"wall") == 0)
 	{
@@ -327,22 +332,22 @@ void cmdProcessing(Data* data, TCHAR* cmd)
 		wi->y = _ttoi(parsedCmd[1]) - 1;
 		wi->x = _ttoi(parsedCmd[2]) - 1;
 
-		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)placeWallThread, (LPVOID)wi, 0, NULL);
+		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) placeWallThread, (LPVOID) wi, 0, NULL);
 	}
 	else if (_tcscmp(parsedCmd[0], L"startwater") == 0)
 	{
-		if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+		if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 		{
 			UnmapViewOfFile(data->fc);
 			data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
 			if (data->fc == NULL)
 			{
-				ReleaseMutex(data->hMutex);
+				ReleaseSemaphore(data->sMutex, 1, NULL);
 				return;
 			}
 			data->fc->gameboard.isWaterRunning = TRUE;
 		}
-		ReleaseMutex(data->hMutex);
+		ReleaseSemaphore(data->sMutex, 1, NULL);
 	}
 	else if (_tcscmp(parsedCmd[0], L"pipe") == 0)
 	{
@@ -358,7 +363,7 @@ void cmdProcessing(Data* data, TCHAR* cmd)
 		pi->pipe_y = pipe_y;
 		pi->pipe_x = pipe_x;
 
-		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)addPipeThread, (LPVOID)pi, 0, NULL);
+		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) addPipeThread, (LPVOID) pi, 0, NULL);
 	}
 }
 
@@ -371,56 +376,58 @@ DWORD WINAPI cmdControlThread(LPVOID param)
 		return -1;
 	}
 
-	if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)
+	if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 	{
 		UnmapViewOfFile(data->fc);
 		data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
 		if (data->fc == NULL)
 		{
 			_tprintf(L"Where's my flow control?\n");
-			ReleaseMutex(data->hMutex);
+			ReleaseSemaphore(data->sMutex, 1, NULL);
 			return -1;
 		}
 	}
-	ReleaseMutex(data->hMutex);
+	ReleaseSemaphore(data->sMutex, 1, NULL);
 
 	while (TRUE)
 	{
 		if (WaitForSingleObject(data->hCommandEvent, INFINITE) == WAIT_OBJECT_0)	//New event OwO
-		{ //if (WaitForSingleObject(sem_itens, INFINITE)== WAIT_OBJECT_0) {
-			if (WaitForSingleObject(data->hMutex, INFINITE) == WAIT_OBJECT_0)//Semaforo"mutex" if (WaitForSingleObject(data->sem_mutex, INFINITE) == WAIT_OBJECT_0)
+		{
+			if (WaitForSingleObject(data->sItems, INFINITE) == WAIT_OBJECT_0)
 			{
-				if(data->fc != NULL) UnmapViewOfFile(data->fc);
-				data->fc = (FlowControl*) MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));//Update shared memory mapping
-				if (data->fc == NULL)
+				if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 				{
-					ReleaseMutex(data->hMutex); //ReleaseSemaphore(sem_mutex, 1, NULL); passas a usar semaforo :s
-					return -1;
+					if (data->fc != NULL) UnmapViewOfFile(data->fc);
+
+					data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));	//Update shared memory mapping
+
+					if (data->fc == NULL)
+					{
+						ReleaseSemaphore(data->sMutex, 1, NULL);
+						return -1;
+					}
+					if (!data->fc->gameboard.isGameRunning)
+					{
+						ReleaseSemaphore(data->sMutex, 1, NULL);
+						return 0;
+					}
+
+					int out = data->fc->buffer.out;
+					_tprintf(L"Received from monitor: %s\n", data->fc->buffer.cmdBuffer[out]);
+					TCHAR cmd[CMD_MAX_LENGTH] = L"";
+					memcpy(cmd, data->fc->buffer.cmdBuffer[out], sizeof(TCHAR) * CMD_MAX_LENGTH);
+				
+					cmdProcessing(data, cmd);
+
+					//update buffer
+					out = (out + 1) % DIM;
+					data->fc->buffer.out = out;
+
+					ResetEvent(data->hCommandEvent);
 				}
-
-				if (!data->fc->gameboard.isGameRunning)
-				{
-					ReleaseMutex(data->hMutex); //ReleaseSemaphore(sem_mutex, 1, NULL);passas a usar semaforo :s
-					return 0;
-				}
-
-				int out = data->fc->buffer.out;
-				_tprintf(L"Received from monitor: %s\n", data->fc->buffer.cmdBuffer[out]);
-				TCHAR cmd[CMD_MAX_LENGTH] = L"";
-				//_tcscpy_s(cmd, sizeof(TCHAR) * CMD_MAX_LENGTH, data->fc->buffer.cmdBuffer[out]);
-				memcpy(cmd, data->fc->buffer.cmdBuffer[out], sizeof(TCHAR) * CMD_MAX_LENGTH);
-
-				cmdProcessing(data, cmd);
-
-				//update buffer
-				out = (out + 1) % DIM;
-				data->fc->buffer.out = out;
-
-				ResetEvent(data->hCommandEvent);
+				ReleaseSemaphore(data->sMutex, 1, NULL);
 			}
-			ReleaseMutex(data->hMutex); //ReleaseSemaphore(data->sem_mutex, 1, NULL);}
-			//ReleaseSemaphore(data->sem_empty, 1, NULL);
-
+			ReleaseSemaphore(data->sEmpty, 1, NULL);
 		}
 	}
 

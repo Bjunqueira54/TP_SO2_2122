@@ -4,6 +4,6 @@
 
 #include "GameBoard.h"
 
-void drawBoardToConsole(GameBoard*);
+void drawBoardToConsole(GameBoard);
 void ClearConsoleScreen(HANDLE);
 void OverwriteConsoleScreen(HANDLE);
