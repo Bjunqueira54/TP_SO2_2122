@@ -36,9 +36,11 @@ DWORD WINAPI pipeReadThread(LPVOID param)
 	HANDLE PipeLeitura = pi->hPipe;
 	DWORD extra;
 
+	ConnectNamedPipe(PipeLeitura, NULL);
+
 	while (TRUE)
 	{
-		if (WaitForSingleObject(data->hMoveEvent, INFINITE) == WAIT_OBJECT_0)
+		if (WaitForSingleObject(data->hPipeEvent, INFINITE) == WAIT_OBJECT_0)
 		{
 			UnmapViewOfFile(data->fc);
 			data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
@@ -51,7 +53,7 @@ DWORD WINAPI pipeReadThread(LPVOID param)
 			if (!ReadFile(PipeLeitura, (LPCVOID)&bc, sizeof(GameBoard), &extra, NULL)) break;
 		}
 		ReleaseSemaphore(data->sMutex, 1, NULL);
-		SetEvent(data->hMoveEvent);
+		ResetEvent(data->hPipeEvent);
 
 		if (!data->fc->gameboard.isGameRunning) break;
 
@@ -76,8 +78,6 @@ DWORD WINAPI pipeWriteThread(LPVOID param)
 	HANDLE PipeEscrita = pi->hPipe;
 	DWORD extra;
 
-	_tprintf(L"pipeWriteThread: waiting for client...\n");
-
 	ConnectNamedPipe(PipeEscrita, NULL);
 
 	while (TRUE)
@@ -93,8 +93,6 @@ DWORD WINAPI pipeWriteThread(LPVOID param)
 			}
 			
 			if (!WriteFile(PipeEscrita, (LPCVOID)&data->fc->gameboard, sizeof(GameBoard), &extra, NULL)) break;
-
-			_tprintf(L"pipeWriteThread: sent stuff to client\n");
 		}
 		if (!data->fc->gameboard.isGameRunning)
 		{
@@ -105,7 +103,7 @@ DWORD WINAPI pipeWriteThread(LPVOID param)
 		ReleaseSemaphore(data->sMutex, 1, NULL);
 		SetEvent(data->hPipeEvent);
 	}
-
+	DisconnectNamedPipe(PipeEscrita);
 	return 0;
 }
 

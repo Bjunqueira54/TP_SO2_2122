@@ -141,6 +141,7 @@ DWORD WINAPI pipeWriteThread(LPVOID param)
 				break;
 		}
 		ResetEvent(data->hMoveEvent);
+		SetEvent(data->hPipeEvent);
 	}
 	return 0;
 }
