@@ -391,7 +391,7 @@ DWORD WINAPI cmdControlThread(LPVOID param)
 
 	while (TRUE)
 	{
-		if (WaitForSingleObject(data->hCommandEvent, INFINITE) == WAIT_OBJECT_0)	//New event OwO
+		if (WaitForSingleObject(data->hCommandEvent, INFINITE) == WAIT_OBJECT_0)	//New event
 		{
 			if (WaitForSingleObject(data->sItems, INFINITE) == WAIT_OBJECT_0)
 			{

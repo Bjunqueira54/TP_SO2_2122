@@ -7,13 +7,19 @@
 #include "..\Global Data Structures\GameBoard.h"
 #include "Functions.h"
 #include "SharedMemoryFunctions.h"
+#include "PipeFunctions.h"
 
 TCHAR memoryName[] = TEXT("GameMemory");
 TCHAR boardEventName[] = TEXT("BoardEvent");
 TCHAR cmdEventName[] = TEXT("CommandEvent");
+TCHAR moveEventName[] = TEXT("MoveEvent");
+TCHAR pipeEventName[] = TEXT("PipeEvent");
 TCHAR sMutexName[] = L"Semaforo_Mutex";
 TCHAR sItemsName[] = L"Semaforo_1";
 TCHAR sEmptyName[] = L"Semaforo_2";
+
+TCHAR PIPE_NAME3[TAM] = TEXT("\\\\.\\pipe\\cliente");
+TCHAR PIPE_NAME4[TAM] = TEXT("\\\\.\\pipe\\servidor");
 
 //SERVER
 int _tmain(int argc, TCHAR** argv)
@@ -45,7 +51,9 @@ int _tmain(int argc, TCHAR** argv)
 	}
 
 	initSharedMemory(data);
-	if (data->hBoardEvent == NULL || data->sMutex == NULL || data->hCommandEvent == NULL || data->sItems == NULL || data->sEmpty == NULL)
+	if (data->hBoardEvent == NULL || data->sMutex == NULL || data->hCommandEvent == NULL ||
+		data->sItems == NULL || data->sEmpty == NULL || data->hMoveEvent == NULL ||
+		data->hPipeEvent == NULL)
 	{
 		_tprintf(L"What happened inside initSharedMemory? Handles are not innitialized: (%d)!\n", GetLastError());
 		return -1;
@@ -87,6 +95,22 @@ int _tmain(int argc, TCHAR** argv)
 		return -1;
 	}
 
+	data->hPipe = CreateNamedPipe(PIPE_NAME2, PIPE_ACCESS_INBOUND, PIPE_WAIT | PIPE_TYPE_MESSAGE
+		| PIPE_READMODE_MESSAGE, N_MAX_LEITORES, TAM * sizeof(TCHAR), TAM * sizeof(TCHAR),
+		1000, NULL);
+	if (data->hPipe == NULL)
+	{
+		_tprintf(TEXT("[ERRO] Ligar ao pipe\n"));
+		return -1;
+	}
+
+	HANDLE RecebeClientesHandle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) ThreadRecebeClientes, (LPVOID) data, 0, NULL);
+	if (RecebeClientesHandle == NULL)
+	{
+		_tprintf(L"Cannot create ThreadRecebeClientes: (%d)!\n", GetLastError());
+		return -1;
+	}
+
 	while (TRUE)
 	{
 		if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
@@ -108,6 +132,10 @@ int _tmain(int argc, TCHAR** argv)
 	SetEvent(data->hCommandEvent);	//Trigger this event to pop cmdControlThread
 	WaitForSingleObject(waterThreadHandle, INFINITE);
 	WaitForSingleObject(cmdThreadHandle, INFINITE);
+
+	TerminateThread(RecebeClientesHandle, 1);
+	DisconnectNamedPipe(data->hPipe);
+	CloseHandle(data->hPipe);
 
 	_tprintf(L"Game ended.\n");
 

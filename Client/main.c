@@ -4,6 +4,8 @@
 #include "resource.h"
 #include "..\Global Data Structures\GameBoard.h"
 
+#include "pipeFunctions.h"
+
 /* ===================================================== */
 /* Programa base (esqueleto) para aplicações Windows */
 /* ===================================================== */
@@ -24,9 +26,14 @@ INT_PTR CALLBACK Connect(HWND, UINT, WPARAM, LPARAM);
 // Nome da classe da janela (para programas de uma só janela, normalmente este nome é
 // igual ao do próprio programa) "szprogName" é usado mais abaixo na definição das
 // propriedades do objecto janela
-TCHAR szProgName[] = TEXT("Base");
+TCHAR szProgName[] = TEXT("PipeWorks");
 
 HINSTANCE hInstance;
+
+TCHAR boardEventName[] = TEXT("BoardEvent");
+TCHAR internalClientEvent[] = TEXT("ClientMoveEvent");
+TCHAR moveEventName[] = TEXT("MoveEvent");
+TCHAR pipeEventName[] = TEXT("PipeEvent");
 
 // ============================================================================
 // FUNÇÃO DE INÍCIO DO PROGRAMA: WinMain()
@@ -91,12 +98,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	// 3. Criar a janela
 	// ============================================================================
 	hWnd = CreateWindow(szProgName, // Nome da janela (programa) definido acima
-		TEXT("Exemplo de Janela Principal em C"), // Texto que figura na barra do título
+		TEXT("PipeWorks"), // Texto que figura na barra do título
 		WS_OVERLAPPEDWINDOW, // Estilo da janela (WS_OVERLAPPED= normal)
 		CW_USEDEFAULT, // Posição x pixels (default=à direita da última)
 		CW_USEDEFAULT, // Posição y pixels (default=abaixo da última)
-		CW_USEDEFAULT, // Largura da janela (em pixels)
-		CW_USEDEFAULT, // Altura da janela (em pixels)
+		(32 * 20) + (64 * 3), // Largura da janela (em pixels)
+		(32 * 20) + (64 * 2), // Altura da janela (em pixels)
 		(HWND)HWND_DESKTOP, // handle da janela pai (se se criar uma a partir de
 		// outra) ou HWND_DESKTOP se a janela for a primeira,
 		// criada a partir do "desktop"
@@ -182,22 +189,66 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 	static HBITMAP hBitmap_CellDLPipe = NULL;
 	static HBITMAP hBitmap_CellDRPipe = NULL;
 
+	static PieceType g_currPiece;
+	static Data* data = NULL;
+
 	switch (messg)
 	{
 	case WM_PAINT:
 		dc = BeginPaint(hWnd, &ps);
 		HDC auxdc;
-		for (int y = 0; y <= 20; y++)
+		if (data->fc->gameboard.board != NULL)
 		{
-			for (int x = 0; x <= 20; x++)
+			GameBoard* board = &data->fc->gameboard;
+			//if (board->x < 0 || board->x > 20) break;
+			for (int y = 0; y < board->y; y++)
 			{
-				auxdc = CreateCompatibleDC(dc);
-				//if(fc->gameboard.board[y][x] == EMPTY)
-				SelectObject(auxdc, (HGDIOBJ)hBitmap_CellEmpty);
-				BitBlt(dc, x * 32, y * 32, 32, 32, auxdc, 0, 0, SRCCOPY);
-				DeleteDC(auxdc);
+				for (int x = 0; x < board->x; x++)
+				{
+					auxdc = CreateCompatibleDC(dc);
+
+					if (board->board[y][x].piece == E)
+						SelectObject(auxdc, (HGDIOBJ)hBitmap_CellEmpty);
+					else if (board->board[y][x].isWall == TRUE)
+						SelectObject(auxdc, (HGDIOBJ)hBitmap_CellEmpty);
+					else if (board->board[y][x].piece == H)
+						SelectObject(auxdc, (HGDIOBJ)hBitmap_CellHPipe);
+					else if (board->board[y][x].piece == V)
+						SelectObject(auxdc, (HGDIOBJ)hBitmap_CellVPipe);
+					else if (board->board[y][x].piece == DL)
+						SelectObject(auxdc, (HGDIOBJ)hBitmap_CellDLPipe);
+					else if (board->board[y][x].piece == DR)
+						SelectObject(auxdc, (HGDIOBJ)hBitmap_CellDRPipe);
+					else if (board->board[y][x].piece == UL)
+						SelectObject(auxdc, (HGDIOBJ)hBitmap_CellULPipe);
+					else if (board->board[y][x].piece == UR)
+						SelectObject(auxdc, (HGDIOBJ)hBitmap_CellURPipe);
+
+					BitBlt(dc, x * 32, y * 32, 32, 32, auxdc, 0, 0, SRCCOPY);
+					DeleteDC(auxdc);
+				}
 			}
 		}
+		
+		//Next Piece
+		auxdc = CreateCompatibleDC(dc);
+		if (g_currPiece == H)
+			SelectObject(auxdc, (HGDIOBJ) hBitmap_CellHPipe);
+		else if (g_currPiece == V)
+			SelectObject(auxdc, (HGDIOBJ) hBitmap_CellVPipe);
+		else if (g_currPiece == DL)
+			SelectObject(auxdc, (HGDIOBJ) hBitmap_CellDLPipe);
+		else if (g_currPiece == DR)
+			SelectObject(auxdc, (HGDIOBJ) hBitmap_CellDRPipe);
+		else if (g_currPiece == UL)
+			SelectObject(auxdc, (HGDIOBJ) hBitmap_CellULPipe);
+		else if (g_currPiece == UR)
+			SelectObject(auxdc, (HGDIOBJ) hBitmap_CellURPipe);
+		else
+			SelectObject(auxdc, (HGDIOBJ) hBitmap_CellEmpty);
+
+		BitBlt(dc, (32 * 20) + (32 * 2), 0, 32, 32, auxdc, 0, 0, SRCCOPY);
+		DeleteDC(auxdc);
 		EndPaint(hWnd, &ps);
 		break;
 	case WM_COMMAND:
@@ -221,24 +272,50 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 	}
 	break;
 	case WM_LBUTTONDOWN:
-		dc = GetDC(hWnd);
+	{
 		x = LOWORD(lParam);
 		y = HIWORD(lParam);
-		TextOut(dc, x, y, L"Hello", 5);
-		ReleaseDC(hWnd, dc);
+
+		int conX = (x / 32);
+		int conY = (y / 32);
+
+		bc.x = conX;
+		bc.y = conY;
+		bc.piece = g_currPiece;
+		SetEvent(data->hMoveEvent);
+	}
 		break;
 	case WM_RBUTTONDOWN:
-		dc = GetDC(hWnd);
-		x = LOWORD(lParam);
-		y = HIWORD(lParam);
-		TextOut(dc, x, y, L"Bye", 3);
-		ReleaseDC(hWnd, dc);
+		if (g_currPiece == H)
+			g_currPiece = V;
+		else if (g_currPiece == V)
+			g_currPiece = H;
+		else if (g_currPiece == DL)
+			g_currPiece = UL;
+		else if (g_currPiece == UL)
+			g_currPiece = UR;
+		else if (g_currPiece == UR)
+			g_currPiece = DR;
+		else if (g_currPiece == DR)
+			g_currPiece = DL;
+
+		InvalidateRect(hWnd, NULL, FALSE);
+		break;
+	case WM_MOUSEWHEEL:
+		if (g_currPiece == H)
+			g_currPiece = V;
+		else if (g_currPiece == V)
+			g_currPiece = DL;
+		else if (g_currPiece == DL || g_currPiece == UL || g_currPiece == UR || g_currPiece == DR)
+			g_currPiece = H;
+
+		InvalidateRect(hWnd, NULL, FALSE);
 		break;
 	case WM_DESTROY: // Destruir a janela e terminar o programa
-	// "PostQuitMessage(Exit Status)"
 		PostQuitMessage(0);
 		break;
 	case WM_CREATE:
+	{
 		hBitmap_CellEmpty = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_BITMAP1));
 		hBitmap_CellVPipe = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_BITMAP2));
 		hBitmap_CellHPipe = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_BITMAP3));
@@ -246,6 +323,16 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 		hBitmap_CellDRPipe = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_BITMAP5));
 		hBitmap_CellULPipe = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_BITMAP6));
 		hBitmap_CellURPipe = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_BITMAP7));
+		g_currPiece = H;
+
+		data = initData();
+
+		PipeThreadInfo* pti = malloc(sizeof(PipeThreadInfo));
+		if (pti == NULL) return -1;
+		pti->data = data;
+		pti->hWnd = hWnd;
+		if (CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)pipeThread, (LPVOID)pti, 0, NULL) == NULL) return -1;
+	}
 		break;
 	default:
 		// Neste exemplo, para qualquer outra mensagem (p.e. "minimizar","maximizar","restaurar")

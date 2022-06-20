@@ -5,3 +5,4 @@
 GameBoard* initGameboard();
 DWORD WINAPI waterControlThread(LPVOID);
 DWORD WINAPI cmdControlThread(LPVOID);
+DWORD WINAPI addPipeThread(LPVOID);

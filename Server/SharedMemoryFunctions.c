@@ -35,6 +35,20 @@ void initSharedMemory(Data* data)
 		_tprintf(L"Error creating Command event handle: (%d)!\n", GetLastError());
 		return;
 	}
+
+	data->hMoveEvent = CreateEvent(NULL, TRUE, FALSE, moveEventName);
+	if (data->hMoveEvent == NULL)
+	{
+		_tprintf(L"Error creatin Move event handle: (%d)!\n", GetLastError());
+		return;
+	}
+
+	data->hPipeEvent = CreateEvent(NULL, TRUE, FALSE, pipeEventName);
+	if (data->hPipeEvent == NULL)
+	{
+		_tprintf(L"Error creatin Pipe event handle: (%d)!\n", GetLastError());
+		return;
+	}
 }
 
 void UnmapSharedMemory(HANDLE gameMemoryHandle)
