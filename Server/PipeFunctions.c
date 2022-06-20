@@ -42,30 +42,41 @@ DWORD WINAPI pipeReadThread(LPVOID param)
 	{
 		if (WaitForSingleObject(data->hPipeEvent, INFINITE) == WAIT_OBJECT_0)
 		{
-			UnmapViewOfFile(data->fc);
-			data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
-			if (data->fc == NULL)
+			if (WaitForSingleObject(data->sMutex, INFINITE) == WAIT_OBJECT_0)
 			{
-				ReleaseSemaphore(data->sMutex, 1, NULL);
-				return -1;
+				UnmapViewOfFile(data->fc);
+				data->fc = (FlowControl*)MapViewOfFile(data->hGameMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(FlowControl));
+				if (data->fc == NULL)
+				{
+					ReleaseSemaphore(data->sMutex, 1, NULL);
+					return -1;
+				}
 			}
 
-			if (!ReadFile(PipeLeitura, (LPCVOID)&bc, sizeof(GameBoard), &extra, NULL)) break;
+			if (!ReadFile(PipeLeitura, (LPCVOID)&bc, sizeof(GameBoard), &extra, NULL))
+			{
+				ReleaseSemaphore(data->sMutex, 1, NULL);
+				break;
+			}
+		
+
+			if (!data->fc->gameboard.isGameRunning)
+			{
+				ReleaseSemaphore(data->sMutex, 1, NULL);
+				break;
+			}
+
+			PipeInfo* pi = malloc(sizeof(PipeInfo));
+			if (pi == NULL) return;
+
+			pi->data = data;
+			pi->pipe_type = bc.piece;
+			pi->pipe_y = bc.y;
+			pi->pipe_x = bc.x;
+			CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)addPipeThread, (LPVOID)pi, 0, NULL);
 		}
 		ReleaseSemaphore(data->sMutex, 1, NULL);
 		ResetEvent(data->hPipeEvent);
-
-		if (!data->fc->gameboard.isGameRunning) break;
-
-		PipeInfo* pi = malloc(sizeof(PipeInfo));
-		if (pi == NULL) return;
-
-		pi->data = data;
-		pi->pipe_type = bc.piece;
-		pi->pipe_y = bc.y;
-		pi->pipe_x = bc.x;
-
-		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)addPipeThread, (LPVOID)pi, 0, NULL);
 	}
 
 	return 0;
@@ -102,6 +113,7 @@ DWORD WINAPI pipeWriteThread(LPVOID param)
 
 		ReleaseSemaphore(data->sMutex, 1, NULL);
 		SetEvent(data->hPipeEvent);
+		Sleep(1000);
 	}
 	DisconnectNamedPipe(PipeEscrita);
 	return 0;
@@ -147,9 +159,6 @@ DWORD WINAPI ThreadComunicacao(LPVOID param)
 	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)pipeReadThread, (LPVOID)ReadPipe, NULL, NULL);
 	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)pipeWriteThread, (LPVOID)WritePipe, NULL, NULL);
 
-	//Código Zombie
-	// Não queremos que haja Memory Leaks
-	// mas ao mesmo tempo existe um receio de algo estragar.
 	//free(ci);
 	return 0;
 }
